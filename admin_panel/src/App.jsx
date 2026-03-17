@@ -5,6 +5,8 @@ import CreateAccount from "./pages/auth/CreateAccount";
 
 import Dashboard from "./pages/Dashboard";
 import Doctors from "./pages/Doctors";
+import ClinicSettings from "./pages/ClinicSettings";
+import PatientRecords from "./pages/PatientRecords";
 import Medicines from "./pages/Medicines";
 import Appointments from "./pages/Appointments";
 import Reports from "./pages/Reports";
@@ -28,6 +30,8 @@ export default function App() {
       >
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/doctors" element={<Doctors />} />
+        <Route path="/clinic-settings" element={<ClinicSettings />} />
+        <Route path="/patient-records" element={<PatientRecords />} />
         <Route path="/medicines" element={<Medicines />} />
         <Route path="/appointments" element={<Appointments />} />
         <Route path="/reports" element={<Reports />} />

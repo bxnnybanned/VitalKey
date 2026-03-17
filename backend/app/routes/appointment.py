@@ -7,13 +7,21 @@ from app.db import get_db
 from app.models.patient import Patient
 from app.models.doctor import Doctor
 from app.models.appointment import Appointment
+from app.models.clinic_setting import ClinicSetting
 from app.schemas.appointment import BookAppointmentSchema
 from app.utils.appointment_code import generate_appointment_code
 
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
 
-CLINIC_OPEN = time(8, 0, 0)
-CLINIC_CLOSE = time(15, 0, 0)
+DAYS_OF_WEEK = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+]
 
 
 def generate_time_slots(start_time: time, end_time: time, interval_minutes: int = 30):
@@ -21,11 +29,20 @@ def generate_time_slots(start_time: time, end_time: time, interval_minutes: int 
     current = datetime.combine(date.today(), start_time)
     end_dt = datetime.combine(date.today(), end_time)
 
-    while current <= end_dt:
+    while current < end_dt:
         slots.append(current.time().replace(microsecond=0))
         current += timedelta(minutes=interval_minutes)
 
     return slots
+
+
+def get_today_clinic_setting(db: Session):
+    today_name = DAYS_OF_WEEK[date.today().weekday()]
+    return (
+        db.query(ClinicSetting)
+        .filter(ClinicSetting.day_of_week == today_name)
+        .first()
+    )
 
 
 @router.get("/available-doctors")
@@ -51,8 +68,12 @@ def get_available_slots(doctor_id: int, db: Session = Depends(get_db)):
 
     today = date.today()
     now = datetime.now().time().replace(second=0, microsecond=0)
+    clinic_setting = get_today_clinic_setting(db)
 
-    if now > CLINIC_CLOSE:
+    if not clinic_setting:
+        raise HTTPException(status_code=404, detail="Clinic schedule for today is not configured")
+
+    if not clinic_setting.is_open:
         return {
             "doctor_id": doctor.id,
             "doctor_name": f"{doctor.first_name} {doctor.last_name}",
@@ -60,7 +81,22 @@ def get_available_slots(doctor_id: int, db: Session = Depends(get_db)):
             "available_slots": []
         }
 
-    all_slots = generate_time_slots(CLINIC_OPEN, CLINIC_CLOSE, 30)
+    clinic_open = clinic_setting.open_time
+    clinic_close = clinic_setting.close_time
+    slot_interval = clinic_setting.slot_interval_minutes
+
+    if not clinic_open or not clinic_close:
+        raise HTTPException(status_code=400, detail="Clinic schedule for today is incomplete")
+
+    if now >= clinic_close:
+        return {
+            "doctor_id": doctor.id,
+            "doctor_name": f"{doctor.first_name} {doctor.last_name}",
+            "appointment_date": str(today),
+            "available_slots": []
+        }
+
+    all_slots = generate_time_slots(clinic_open, clinic_close, slot_interval)
 
     filtered_slots = [slot for slot in all_slots if slot >= now]
 
@@ -100,12 +136,31 @@ def book_appointment(payload: BookAppointmentSchema, db: Session = Depends(get_d
 
     today = date.today()
     now = datetime.now().time().replace(second=0, microsecond=0)
+    clinic_setting = get_today_clinic_setting(db)
 
-    if now > CLINIC_CLOSE:
+    if not clinic_setting:
+        raise HTTPException(status_code=404, detail="Clinic schedule for today is not configured")
+
+    if not clinic_setting.is_open:
+        raise HTTPException(status_code=400, detail="Clinic is closed today")
+
+    clinic_open = clinic_setting.open_time
+    clinic_close = clinic_setting.close_time
+
+    if not clinic_open or not clinic_close:
+        raise HTTPException(status_code=400, detail="Clinic schedule for today is incomplete")
+
+    if now >= clinic_close:
         raise HTTPException(status_code=400, detail="Clinic booking hours are already closed for today")
 
-    if payload.appointment_time < CLINIC_OPEN or payload.appointment_time > CLINIC_CLOSE:
-        raise HTTPException(status_code=400, detail="Appointment time must be within clinic hours (8:00 AM to 3:00 PM)")
+    if payload.appointment_time < clinic_open or payload.appointment_time >= clinic_close:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Appointment time must be within clinic hours "
+                f"({clinic_open.strftime('%I:%M %p')} to {clinic_close.strftime('%I:%M %p')})"
+            ),
+        )
 
     if payload.appointment_time < now:
         raise HTTPException(status_code=400, detail="You can only book current or upcoming time slots for today")

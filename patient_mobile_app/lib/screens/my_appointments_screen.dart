@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/auth_service.dart';
 
 class MyAppointmentsScreen extends StatefulWidget {
@@ -46,13 +47,13 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
 
   Color getStatusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'confirmed':
-      case 'approved':
+      case "confirmed":
+      case "approved":
         return const Color(0xFF16A34A);
-      case 'pending':
+      case "pending":
         return const Color(0xFFF59E0B);
-      case 'cancelled':
-      case 'rejected':
+      case "cancelled":
+      case "rejected":
         return const Color(0xFFDC2626);
       default:
         return const Color(0xFF2563EB);
@@ -116,7 +117,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                           ),
                           SizedBox(height: 16),
                           Text(
-                            'No Appointments Found',
+                            "No Appointments Found",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 22,
@@ -126,7 +127,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                           ),
                           SizedBox(height: 8),
                           Text(
-                            'You do not have any appointments yet. Book your first consultation to get started.',
+                            "You do not have any appointments yet. Book your first consultation to receive your schedule and queue number.",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
@@ -161,9 +162,9 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                             ),
                           ],
                         ),
-                        child: const Column(
+                        child: Column(
                           children: [
-                            CircleAvatar(
+                            const CircleAvatar(
                               radius: 34,
                               backgroundColor: softBlue,
                               child: Icon(
@@ -172,9 +173,9 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                                 color: primaryBlue,
                               ),
                             ),
-                            SizedBox(height: 16),
-                            Text(
-                              'My Appointments',
+                            const SizedBox(height: 16),
+                            const Text(
+                              "My Appointments",
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 28,
@@ -182,9 +183,9 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                                 color: textDark,
                               ),
                             ),
-                            SizedBox(height: 8),
-                            Text(
-                              'View your scheduled consultations, queue number, and appointment status.',
+                            const SizedBox(height: 8),
+                            const Text(
+                              "Review your consultation schedule, queue number, and booking details anytime.",
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 14,
@@ -205,6 +206,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                           final status = (item["status"] ?? "Unknown")
                               .toString();
                           final statusColor = getStatusColor(status);
+                          final queueNumber = item["queue_number"]?.toString();
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 16),
@@ -228,6 +230,49 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  if (queueNumber != null &&
+                                      queueNumber.isNotEmpty &&
+                                      queueNumber != "-") ...[
+                                    Container(
+                                      width: double.infinity,
+                                      margin: const EdgeInsets.only(bottom: 14),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: softBlue,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.confirmation_number_outlined,
+                                            color: primaryBlue,
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          const Text(
+                                            "Queue Number",
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: textSoft,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Text(
+                                            queueNumber,
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w700,
+                                              color: textDark,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                   Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -261,6 +306,15 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                                               ),
                                             ),
                                             const SizedBox(height: 4),
+                                            Text(
+                                              item["specialization"]?.toString() ??
+                                                  "General Consultation",
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                color: textSoft,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
                                             Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -300,7 +354,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                                       children: [
                                         _infoRow(
                                           icon: Icons.calendar_today,
-                                          label: 'Date',
+                                          label: "Date",
                                           value:
                                               item["appointment_date"]
                                                   ?.toString() ??
@@ -309,7 +363,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                                         const SizedBox(height: 12),
                                         _infoRow(
                                           icon: Icons.access_time_rounded,
-                                          label: 'Time',
+                                          label: "Time",
                                           value:
                                               item["appointment_time"]
                                                   ?.toString() ??
@@ -319,16 +373,13 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                                         _infoRow(
                                           icon: Icons
                                               .confirmation_number_outlined,
-                                          label: 'Queue',
-                                          value:
-                                              item["queue_number"]
-                                                  ?.toString() ??
-                                              "-",
+                                          label: "Queue",
+                                          value: queueNumber ?? "-",
                                         ),
                                         const SizedBox(height: 12),
                                         _infoRow(
                                           icon: Icons.notes_rounded,
-                                          label: 'Reason',
+                                          label: "Reason",
                                           value:
                                               item["reason"]?.toString() ?? "-",
                                         ),
@@ -366,7 +417,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
         SizedBox(
           width: 56,
           child: Text(
-            '$label:',
+            "$label:",
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,

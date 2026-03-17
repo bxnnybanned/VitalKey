@@ -1,74 +1,136 @@
 import 'package:flutter/material.dart';
+
+import '../services/auth_service.dart';
 import 'book_appointment_screen.dart';
-import 'my_appointments_screen.dart';
 import 'doctor_availability_screen.dart';
+import 'my_appointments_screen.dart';
 import 'profile_screen.dart';
 import 'request_medicines_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final String patientName;
   final String mobileNumber;
+  final String patientId;
 
   const DashboardScreen({
     super.key,
     required this.patientName,
     required this.mobileNumber,
+    required this.patientId,
   });
 
-  Widget buildCard({
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final AuthService _authService = AuthService();
+  late String currentPatientName;
+  late String currentMobileNumber;
+  late String currentPatientId;
+
+  static const Color _primaryBlue = Color(0xFF2563EB);
+  static const Color _secondaryBlue = Color(0xFF1D4ED8);
+  static const Color _textDark = Color(0xFF0F172A);
+  static const Color _textSoft = Color(0xFF64748B);
+
+  @override
+  void initState() {
+    super.initState();
+    currentPatientName = widget.patientName;
+    currentMobileNumber = widget.mobileNumber;
+    currentPatientId = widget.patientId;
+  }
+
+  Future<void> _openProfile(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProfileScreen(mobileNumber: currentMobileNumber),
+      ),
+    );
+
+    final session = await _authService.getSession();
+    if (!mounted || session == null) return;
+
+    setState(() {
+      currentPatientName =
+          (session["patient_name"] ?? currentPatientName).toString();
+      currentMobileNumber =
+          (session["mobile_number"] ?? currentMobileNumber).toString();
+      currentPatientId = (session["patient_id"] ?? currentPatientId).toString();
+    });
+  }
+
+  Widget _buildActionCard({
     required BuildContext context,
     required String title,
+    required String subtitle,
     required IconData icon,
     required VoidCallback onTap,
+    required bool compact,
   }) {
-    const primaryBlue = Color(0xFF2563EB);
-    const textDark = Color(0xFF0F172A);
-
-    return Card(
-      elevation: 4,
-      shadowColor: Colors.black12,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: primaryBlue.withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: primaryBlue, size: 30),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: textDark,
-                ),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.95),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: _primaryBlue.withOpacity(0.06), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: _primaryBlue.withOpacity(0.08),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
               ),
             ],
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(compact ? 16 : 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: compact ? 46 : 52,
+                  height: compact ? 46 : 52,
+                  decoration: BoxDecoration(
+                    color: _primaryBlue.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Icon(icon, color: _primaryBlue, size: compact ? 24 : 28),
+                ),
+                SizedBox(height: compact ? 12 : 16),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: compact ? 15 : 16,
+                    fontWeight: FontWeight.w700,
+                    color: _textDark,
+                  ),
+                ),
+                SizedBox(height: compact ? 6 : 8),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: compact ? 12.5 : 13,
+                    height: 1.45,
+                    color: _textSoft,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  PreferredSizeWidget buildCustomAppBar(BuildContext context) {
-    const primaryBlue = Color(0xFF2563EB);
-    const secondaryBlue = Color(0xFF1D4ED8);
-
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
     return PreferredSize(
-      preferredSize: const Size.fromHeight(110),
+      preferredSize: const Size.fromHeight(120),
       child: AppBar(
         automaticallyImplyLeading: false,
         elevation: 0,
@@ -76,31 +138,31 @@ class DashboardScreen extends StatelessWidget {
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [primaryBlue, secondaryBlue],
+              colors: [_primaryBlue, _secondaryBlue],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black26,
-                blurRadius: 10,
+                blurRadius: 12,
                 offset: Offset(0, 4),
               ),
             ],
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
-                    height: 52,
-                    width: 52,
+                    height: 54,
+                    width: 54,
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
                     ),
                     child: const Icon(
                       Icons.favorite_rounded,
@@ -115,7 +177,7 @@ class DashboardScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'VitalKey',
+                          "VitalKey",
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 22,
@@ -125,7 +187,7 @@ class DashboardScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Welcome back, $patientName',
+                          "Welcome back, $currentPatientName",
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -139,15 +201,7 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   InkWell(
                     borderRadius: BorderRadius.circular(30),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              ProfileScreen(mobileNumber: mobileNumber),
-                        ),
-                      );
-                    },
+                    onTap: () => _openProfile(context),
                     child: Container(
                       padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
@@ -179,158 +233,254 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textDark = Color(0xFF0F172A);
-    const textSoft = Color(0xFF64748B);
+    final compact = MediaQuery.of(context).size.width < 360;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
-      appBar: buildCustomAppBar(context),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x0F000000),
-                    blurRadius: 12,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB).withOpacity(0.10),
-                      borderRadius: BorderRadius.circular(14),
+      appBar: _buildAppBar(context),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF8FBFF), Color(0xFFEEF6FF), Color(0xFFE3F0FF)],
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final useSingleColumn = constraints.maxWidth < 360;
+              return SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 14 : 18,
+                  compact ? 14 : 18,
+                  compact ? 14 : 18,
+                  16,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(compact ? 16 : 18),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.94),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _primaryBlue.withOpacity(0.08),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Today with VitalKey",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: _textDark,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            "Book consultations, review your appointments, request medicines, and keep your health profile updated in one place.",
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              height: 1.5,
+                              color: _textSoft,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: _primaryBlue.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.badge_outlined,
+                                  color: _primaryBlue,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        "Patient ID",
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          color: _textSoft,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        currentPatientId.isEmpty
+                                            ? "-"
+                                            : currentPatientId,
+                                        style: TextStyle(
+                                          fontSize: compact ? 15 : 16.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: _textDark,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.phone_android,
-                      color: Color(0xFF2563EB),
+                    const SizedBox(height: 22),
+                    const Text(
+                      "Quick Actions",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: _textDark,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 14,
+                      runSpacing: 14,
                       children: [
-                        const Text(
-                          'Registered Mobile Number',
-                          style: TextStyle(fontSize: 13, color: textSoft),
+                        SizedBox(
+                          width: useSingleColumn
+                              ? double.infinity
+                              : (constraints.maxWidth -
+                                        (compact ? 28 : 36) -
+                                        14) /
+                                    2,
+                          child: _buildActionCard(
+                            context: context,
+                            title: "Book Appointment",
+                            subtitle:
+                                "Schedule a consultation and receive your queue number.",
+                            icon: Icons.calendar_today_rounded,
+                            compact: compact,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => BookAppointmentScreen(
+                                    mobileNumber: currentMobileNumber,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          mobileNumber,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: textDark,
+                        SizedBox(
+                          width: useSingleColumn
+                              ? double.infinity
+                              : (constraints.maxWidth -
+                                        (compact ? 28 : 36) -
+                                        14) /
+                                    2,
+                          child: _buildActionCard(
+                            context: context,
+                            title: "My Appointments",
+                            subtitle:
+                                "View your booked consultations and appointment status.",
+                            icon: Icons.event_note_rounded,
+                            compact: compact,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => MyAppointmentsScreen(
+                                    mobileNumber: currentMobileNumber,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: useSingleColumn
+                              ? double.infinity
+                              : (constraints.maxWidth -
+                                        (compact ? 28 : 36) -
+                                        14) /
+                                    2,
+                          child: _buildActionCard(
+                            context: context,
+                            title: "Request Medicines",
+                            subtitle:
+                                "Submit a medicine request and track release updates.",
+                            icon: Icons.medication_rounded,
+                            compact: compact,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RequestMedicinesScreen(
+                                    mobileNumber: currentMobileNumber,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: useSingleColumn
+                              ? double.infinity
+                              : (constraints.maxWidth -
+                                        (compact ? 28 : 36) -
+                                        14) /
+                                    2,
+                          child: _buildActionCard(
+                            context: context,
+                            title: "Doctor Availability",
+                            subtitle:
+                                "Check which doctors are currently available for consultation.",
+                            icon: Icons.local_hospital_rounded,
+                            compact: compact,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const DoctorAvailabilityScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: useSingleColumn
+                              ? double.infinity
+                              : (constraints.maxWidth -
+                                        (compact ? 28 : 36) -
+                                        14) /
+                                    2,
+                          child: _buildActionCard(
+                            context: context,
+                            title: "Profile",
+                            subtitle:
+                                "Review your patient ID, contact details, and profile photo.",
+                            icon: Icons.person_rounded,
+                            compact: compact,
+                            onTap: () => _openProfile(context),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 22),
-            const Text(
-              'Quick Actions',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: textDark,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 14,
-                mainAxisSpacing: 14,
-                childAspectRatio: 0.95,
-                children: [
-                  buildCard(
-                    context: context,
-                    title: 'Book Appointment',
-                    icon: Icons.calendar_today,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              BookAppointmentScreen(mobileNumber: mobileNumber),
-                        ),
-                      );
-                    },
-                  ),
-                  buildCard(
-                    context: context,
-                    title: 'My Appointments',
-                    icon: Icons.event_note,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              MyAppointmentsScreen(mobileNumber: mobileNumber),
-                        ),
-                      );
-                    },
-                  ),
-                  buildCard(
-                    context: context,
-                    title: 'Request Medicines',
-                    icon: Icons.medication,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => RequestMedicinesScreen(
-                            mobileNumber: mobileNumber,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  buildCard(
-                    context: context,
-                    title: 'Doctor Availability',
-                    icon: Icons.local_hospital,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const DoctorAvailabilityScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  buildCard(
-                    context: context,
-                    title: 'Profile',
-                    icon: Icons.person,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              ProfileScreen(mobileNumber: mobileNumber),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

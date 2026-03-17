@@ -29,6 +29,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final emergencyContactController = TextEditingController();
 
   File? selectedImageFile;
+  late String currentMobileNumber;
 
   static const Color _primaryBlue = Color(0xFF2F6BFF);
   static const Color _deepBlue = Color(0xFF123D91);
@@ -41,13 +42,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    currentMobileNumber = widget.mobileNumber;
     loadProfile();
   }
 
   Future<void> loadProfile() async {
     try {
       final result = await _authService.getProfile(
-        mobileNumber: widget.mobileNumber,
+        mobileNumber: currentMobileNumber,
       );
 
       if (!mounted) return;
@@ -78,7 +80,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final result = await _authService.updateProfile(
-        mobileNumber: widget.mobileNumber,
+        mobileNumber: currentMobileNumber,
         newMobileNumber: mobileNumberController.text.trim(),
         address: addressController.text.trim(),
         emergencyContact: emergencyContactController.text.trim(),
@@ -86,6 +88,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       if (!mounted) return;
+
+      final updatedMobileNumber = mobileNumberController.text.trim();
+      await _authService.saveSession(
+        patientName: (profileData?["full_name"] ?? "Patient").toString(),
+        email: (profileData?["email"] ?? "").toString(),
+        mobileNumber: updatedMobileNumber,
+        patientId: (profileData?["patient_id"] ?? "").toString(),
+      );
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -96,6 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       setState(() {
         isEditing = false;
+        currentMobileNumber = updatedMobileNumber;
       });
 
       await loadProfile();
@@ -132,7 +143,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
 
       final result = await _authService.uploadProfilePicture(
-        mobileNumber: widget.mobileNumber,
+        mobileNumber: currentMobileNumber,
         imageFile: imageFile,
       );
 
@@ -426,6 +437,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             fontSize: 13.5,
                           ),
                         ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Review your patient details and update your contact information when needed.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.88),
+                            fontSize: 12.8,
+                            height: 1.45,
+                          ),
+                        ),
                         const SizedBox(height: 14),
                         if (isEditing)
                           Wrap(
@@ -451,7 +472,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 icon: const Icon(Icons.photo_library_outlined),
                                 label: const Text(
-                                  'Gallery',
+                                  'Choose Photo',
                                   style: TextStyle(fontWeight: FontWeight.w700),
                                 ),
                               ),
@@ -478,7 +499,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 icon: const Icon(Icons.camera_alt_outlined),
                                 label: const Text(
-                                  'Camera',
+                                  'Take Photo',
                                   style: TextStyle(fontWeight: FontWeight.w700),
                                 ),
                               ),
@@ -506,6 +527,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     icon: Icons.person_outline_rounded,
                     label: 'Full Name',
                     value: (profileData!["full_name"] ?? "").toString(),
+                  ),
+                  buildInfoTile(
+                    icon: Icons.email_outlined,
+                    label: 'Email',
+                    value: (profileData!["email"] ?? "").toString(),
                   ),
                   buildInfoTile(
                     icon: Icons.cake_outlined,
@@ -585,7 +611,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(height: 6),
                         const Text(
-                          'Update your mobile number, address, and emergency contact.',
+                          'You can update your mobile number, address, emergency contact, and profile picture here.',
                           style: TextStyle(color: _textMuted, fontSize: 13.5),
                         ),
                         const SizedBox(height: 18),
@@ -610,7 +636,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         if (!isEditing)
                           SizedBox(
                             width: double.infinity,
-                            height: 54,
+                            height: 52,
                             child: ElevatedButton.icon(
                               onPressed: () {
                                 setState(() {
@@ -638,7 +664,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         if (isEditing) ...[
                           SizedBox(
                             width: double.infinity,
-                            height: 54,
+                            height: 52,
                             child: ElevatedButton(
                               onPressed: isUpdating ? null : saveProfile,
                               style: ElevatedButton.styleFrom(
@@ -708,7 +734,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
-                    height: 54,
+                    height: 52,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFE74C3C),

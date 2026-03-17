@@ -53,6 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
             builder: (_) => DashboardScreen(
               patientName: result["name"] ?? "Patient",
               mobileNumber: result["mobile_number"] ?? "",
+              patientId: result["patient_id"] ?? "",
             ),
           ),
         );
@@ -86,6 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
     const textDark = Color(0xFF0F172A);
     const textSoft = Color(0xFF64748B);
     const borderColor = Color(0xFFD6E4F0);
+    final compact = MediaQuery.of(context).size.width < 360;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
@@ -100,13 +102,16 @@ class _LoginScreenState extends State<LoginScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 16 : 22,
+                vertical: compact ? 18 : 24,
+              ),
               child: Container(
                 width: double.infinity,
                 constraints: const BoxConstraints(maxWidth: 420),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 30,
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 18 : 24,
+                  vertical: compact ? 24 : 30,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.94),
@@ -127,8 +132,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      height: 82,
-                      width: 82,
+                      height: compact ? 72 : 82,
+                      width: compact ? 72 : 82,
                       decoration: BoxDecoration(
                         color: softBlue,
                         shape: BoxShape.circle,
@@ -139,25 +144,25 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: const Icon(
                         Icons.health_and_safety_rounded,
-                        size: 40,
+                        size: 36,
                         color: primaryBlue,
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
                       'Welcome Back',
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: compact ? 24 : 28,
                         fontWeight: FontWeight.w700,
                         color: textDark,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Sign in to access your medical records, appointments, and care updates.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: compact ? 13 : 14,
                         height: 1.5,
                         color: textSoft,
                       ),
@@ -286,7 +291,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
-                      height: 54,
+                      height: 52,
                       child: ElevatedButton(
                         onPressed: isLoading ? null : login,
                         style: ElevatedButton.styleFrom(
@@ -377,6 +382,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
                             Icons.verified_user_outlined,

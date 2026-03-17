@@ -166,6 +166,17 @@ class AuthService {
     await prefs.clear();
   }
 
+  Future<bool> canReachServer() async {
+    try {
+      final response = await http
+          .get(Uri.parse(baseUrl))
+          .timeout(const Duration(seconds: 5));
+      return response.statusCode >= 200 && response.statusCode < 500;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<List<dynamic>> getAvailableDoctors() async {
     final response = await http
         .get(

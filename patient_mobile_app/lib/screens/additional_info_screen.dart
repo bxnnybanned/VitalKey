@@ -40,6 +40,13 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
       if (!mounted) return;
 
       if (result["patient_id"] != null) {
+        await _authService.saveSession(
+          patientName: result["full_name"] ?? "Patient",
+          email: widget.email,
+          mobileNumber: result["mobile_number"] ?? "",
+          patientId: result["patient_id"] ?? "",
+        );
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -54,6 +61,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
             builder: (_) => DashboardScreen(
               patientName: result["full_name"] ?? "Patient",
               mobileNumber: result["mobile_number"] ?? "",
+              patientId: result["patient_id"] ?? "",
             ),
           ),
           (route) => false,
@@ -90,6 +98,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
     const textDark = Color(0xFF0F172A);
     const textSoft = Color(0xFF64748B);
     const borderColor = Color(0xFFD6E4F0);
+    final compact = MediaQuery.of(context).size.width < 360;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
@@ -104,13 +113,16 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 16 : 22,
+                vertical: compact ? 18 : 24,
+              ),
               child: Container(
                 width: double.infinity,
                 constraints: const BoxConstraints(maxWidth: 420),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 30,
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 18 : 24,
+                  vertical: compact ? 24 : 30,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.94),
@@ -130,8 +142,8 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
                 child: Column(
                   children: [
                     Container(
-                      height: 82,
-                      width: 82,
+                      height: compact ? 72 : 82,
+                      width: compact ? 72 : 82,
                       decoration: BoxDecoration(
                         color: softBlue,
                         shape: BoxShape.circle,
@@ -142,23 +154,23 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
                       ),
                       child: const Icon(
                         Icons.assignment_ind_rounded,
-                        size: 40,
+                        size: 36,
                         color: primaryBlue,
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
                       'Additional Information',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 27,
+                        fontSize: compact ? 24 : 27,
                         fontWeight: FontWeight.w700,
                         color: textDark,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Complete your profile to continue securely with ${widget.email}',
+                      'Add your address and emergency contact details to complete your patient profile for ${widget.email}.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 14,
@@ -263,7 +275,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
 
                     SizedBox(
                       width: double.infinity,
-                      height: 54,
+                      height: 52,
                       child: ElevatedButton(
                         onPressed: isLoading ? null : completeProfile,
                         style: ElevatedButton.styleFrom(
@@ -307,6 +319,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
                             Icons.shield_outlined,
@@ -316,7 +329,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
                           SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'This information helps provide safer and more reliable medical support.',
+                              'Your patient ID will be generated after this step is completed successfully.',
                               style: TextStyle(
                                 fontSize: 12.5,
                                 height: 1.4,

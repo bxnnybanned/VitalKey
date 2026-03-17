@@ -325,7 +325,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Submit your medicine request easily and track your request status in one place.',
+                              'Request medicines from the health center and monitor the status of each request in one place.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.9),
@@ -367,7 +367,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                             ),
                             const SizedBox(height: 6),
                             const Text(
-                              'Choose the medicine and provide the required details.',
+                              'Choose the medicine, enter the quantity, and add a short note if needed.',
                               style: TextStyle(
                                 color: _textMuted,
                                 fontSize: 13.5,
@@ -431,7 +431,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                                 });
                               },
                               decoration: _inputDecoration(
-                                label: 'Select Medicine',
+                                label: 'Medicine',
                                 icon: Icons.medication_outlined,
                               ),
                               dropdownColor: Colors.white,
@@ -455,14 +455,14 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                               controller: reasonController,
                               maxLines: 4,
                               decoration: _inputDecoration(
-                                label: 'Reason / Note',
+                                label: 'Reason or Note',
                                 icon: Icons.edit_note_rounded,
                               ),
                             ),
                             const SizedBox(height: 18),
                             SizedBox(
                               width: double.infinity,
-                              height: 54,
+                              height: 52,
                               child: ElevatedButton(
                                 onPressed: isSubmitting ? null : submitRequest,
                                 style: ElevatedButton.styleFrom(
@@ -483,7 +483,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                                         ),
                                       )
                                     : const Text(
-                                        'Submit Request',
+                                        'Send Request',
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w700,
@@ -561,6 +561,16 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                                   color: _textDark,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Your submitted requests will appear here once they are sent to the health center.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: _textMuted,
+                                  fontSize: 13.5,
+                                  height: 1.45,
                                 ),
                               ),
                             ],
@@ -648,7 +658,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                                 const SizedBox(height: 10),
                                 _buildDetailRow(
                                   Icons.calendar_month_outlined,
-                                  'Date',
+                                  'Requested',
                                   '${request["requested_at"]}',
                                 ),
                               ],
@@ -675,7 +685,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
         ),
         Expanded(
           child: Text(
-            value,
+            value.isEmpty ? '-' : value,
             style: const TextStyle(color: _textMuted, height: 1.4),
           ),
         ),

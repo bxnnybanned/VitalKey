@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/auth_service.dart';
 
 class DoctorAvailabilityScreen extends StatefulWidget {
@@ -58,7 +59,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
         title: const Text(
-          'Doctor Availability',
+          "Doctor Availability",
           style: TextStyle(
             color: _textDark,
             fontSize: 22,
@@ -138,7 +139,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Available Doctors',
+                    "Available Doctors",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -147,11 +148,20 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${doctors.length} doctor${doctors.length > 1 ? 's' : ''} ready for consultation',
+                    "${doctors.length} doctor${doctors.length > 1 ? 's' : ''} listed for appointment booking",
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Consultations are scheduled during clinic hours from Monday to Friday, 8:00 AM to 5:00 PM.",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.88),
+                      fontSize: 12.5,
+                      height: 1.45,
                     ),
                   ),
                 ],
@@ -235,7 +245,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                       SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Monday to Friday, 8:00 AM - 5:00 PM',
+                          "Select this doctor when booking an appointment within the clinic schedule set by the health center.",
                           style: TextStyle(
                             color: _textMuted,
                             fontSize: 13.5,
@@ -256,7 +266,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
-                'Available',
+                "Available",
                 style: TextStyle(
                   color: Color(0xFF1F9D55),
                   fontSize: 12,
@@ -291,7 +301,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
             ),
             const SizedBox(height: 18),
             const Text(
-              'No available doctors found',
+              "No available doctors found",
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 20,
@@ -301,7 +311,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Please check again later for updated doctor availability.',
+              "Please check again later or contact the health center for updated doctor availability.",
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: _textMuted, height: 1.5),
             ),

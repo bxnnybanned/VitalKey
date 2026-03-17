@@ -43,7 +43,11 @@ export default function Login() {
 
       navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.detail || "Invalid email or password.");
+      setError(
+        err.response?.data?.detail ||
+          err.message ||
+          "Invalid email or password."
+      );
     } finally {
       setLoading(false);
     }
@@ -51,7 +55,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-cyan-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-8">
+      <div className="w-full max-w-md rounded-[28px] border border-white/70 bg-white/90 p-8 shadow-2xl shadow-slate-200/60 backdrop-blur">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-blue-600">VitalKey</h1>
           <p className="text-gray-500 mt-2">Admin Login</p>

@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import date, time
+from collections import defaultdict
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -10,8 +11,224 @@ from app.models.appointment import Appointment
 from app.models.patient import Patient
 from app.models.prescription import Prescription
 from app.models.inventory_transaction import InventoryTransaction
+from app.models.clinic_setting import ClinicSetting
+from app.models.health_record import HealthRecord
+from app.utils.age import calculate_age
 
 router = APIRouter(prefix="/admin", tags=["Admin Panel"])
+
+
+def parse_time_value(value, field_name: str):
+    if value in (None, ""):
+        return None
+
+    if isinstance(value, time):
+        return value
+
+    try:
+        normalized_value = str(value)
+        if len(normalized_value) == 5:
+            normalized_value = f"{normalized_value}:00"
+        return time.fromisoformat(normalized_value)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field_name} must be a valid time in HH:MM or HH:MM:SS format",
+        )
+
+
+def serialize_health_record(record: HealthRecord):
+    return {
+        "id": record.id,
+        "height_cm": float(record.height_cm) if record.height_cm is not None else None,
+        "weight_kg": float(record.weight_kg) if record.weight_kg is not None else None,
+        "temperature_c": (
+            float(record.temperature_c) if record.temperature_c is not None else None
+        ),
+        "systolic_bp": record.systolic_bp,
+        "diastolic_bp": record.diastolic_bp,
+        "oxygen_saturation": (
+            float(record.oxygen_saturation)
+            if record.oxygen_saturation is not None
+            else None
+        ),
+        "heart_rate": record.heart_rate,
+        "recorded_at": str(record.recorded_at),
+    }
+
+
+def aggregate_daily_patient_visits(appointments, limit: int | None = None):
+    grouped = defaultdict(int)
+
+    for appointment in appointments:
+        grouped[appointment.appointment_date] += 1
+
+    items = [
+        {
+            "label": day.isoformat(),
+            "appointment_date": day.isoformat(),
+            "total_visits": total,
+        }
+        for day, total in sorted(grouped.items())
+    ]
+
+    if limit:
+        items = items[-limit:]
+
+    return items
+
+
+def aggregate_weekly_patient_visits(appointments, limit: int | None = None):
+    grouped = defaultdict(int)
+
+    for appointment in appointments:
+        iso_year, iso_week, _ = appointment.appointment_date.isocalendar()
+        grouped[(iso_year, iso_week)] += 1
+
+    items = []
+    for (iso_year, iso_week), total in sorted(grouped.items()):
+        items.append(
+            {
+                "label": f"{iso_year}-W{iso_week:02d}",
+                "year": iso_year,
+                "week": iso_week,
+                "total_visits": total,
+            }
+        )
+
+    if limit:
+        items = items[-limit:]
+
+    return items
+
+
+def aggregate_monthly_patient_visits(appointments, limit: int | None = None):
+    grouped = defaultdict(int)
+
+    for appointment in appointments:
+        grouped[(appointment.appointment_date.year, appointment.appointment_date.month)] += 1
+
+    items = []
+    for (year, month), total in sorted(grouped.items()):
+        items.append(
+            {
+                "label": f"{year}-{month:02d}",
+                "year": year,
+                "month": month,
+                "total_visits": total,
+            }
+        )
+
+    if limit:
+        items = items[-limit:]
+
+    return items
+
+
+@router.get("/clinic-settings")
+def get_clinic_settings(db: Session = Depends(get_db)):
+    settings = (
+        db.query(ClinicSetting)
+        .order_by(ClinicSetting.id.asc())
+        .all()
+    )
+
+    return [
+        {
+            "id": setting.id,
+            "day_of_week": setting.day_of_week,
+            "is_open": setting.is_open,
+            "open_time": (
+                setting.open_time.strftime("%H:%M:%S")
+                if setting.open_time
+                else None
+            ),
+            "close_time": (
+                setting.close_time.strftime("%H:%M:%S")
+                if setting.close_time
+                else None
+            ),
+            "slot_interval_minutes": setting.slot_interval_minutes,
+        }
+        for setting in settings
+    ]
+
+
+@router.put("/clinic-settings/{setting_id}")
+def update_clinic_setting(
+    setting_id: int, payload: dict, db: Session = Depends(get_db)
+):
+    setting = db.query(ClinicSetting).filter(ClinicSetting.id == setting_id).first()
+    if not setting:
+        raise HTTPException(status_code=404, detail="Clinic setting not found")
+
+    is_open = payload.get("is_open", setting.is_open)
+    open_time = parse_time_value(
+        payload.get("open_time", setting.open_time), "open_time"
+    )
+    close_time = parse_time_value(
+        payload.get("close_time", setting.close_time), "close_time"
+    )
+    slot_interval_minutes = payload.get(
+        "slot_interval_minutes", setting.slot_interval_minutes
+    )
+
+    if slot_interval_minutes is None:
+        raise HTTPException(
+            status_code=400, detail="slot_interval_minutes is required"
+        )
+
+    try:
+        slot_interval_minutes = int(slot_interval_minutes)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400, detail="slot_interval_minutes must be a valid integer"
+        )
+
+    if slot_interval_minutes <= 0:
+        raise HTTPException(
+            status_code=400, detail="slot_interval_minutes must be greater than 0"
+        )
+
+    if is_open:
+        if not open_time or not close_time:
+            raise HTTPException(
+                status_code=400,
+                detail="Open and close times are required when the clinic is open",
+            )
+
+    setting.is_open = is_open
+    setting.open_time = open_time if is_open else None
+    setting.close_time = close_time if is_open else None
+    setting.slot_interval_minutes = slot_interval_minutes
+
+    if setting.is_open and setting.open_time >= setting.close_time:
+        raise HTTPException(
+            status_code=400, detail="Open time must be earlier than close time"
+        )
+
+    db.commit()
+    db.refresh(setting)
+
+    return {
+        "message": "Clinic setting updated successfully",
+        "setting": {
+            "id": setting.id,
+            "day_of_week": setting.day_of_week,
+            "is_open": setting.is_open,
+            "open_time": (
+                setting.open_time.strftime("%H:%M:%S")
+                if setting.open_time
+                else None
+            ),
+            "close_time": (
+                setting.close_time.strftime("%H:%M:%S")
+                if setting.close_time
+                else None
+            ),
+            "slot_interval_minutes": setting.slot_interval_minutes,
+        },
+    }
 
 @router.get("/doctors")
 def get_doctors(db: Session = Depends(get_db)):
@@ -219,23 +436,32 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
 
 @router.get("/reports/patient-visits")
 def get_patient_visits_report(db: Session = Depends(get_db)):
-    visits = (
-        db.query(
-            Appointment.appointment_date,
-            func.count(Appointment.id).label("total_visits")
-        )
-        .group_by(Appointment.appointment_date)
-        .order_by(Appointment.appointment_date.desc())
-        .all()
-    )
+    appointments = db.query(Appointment).order_by(Appointment.appointment_date.asc()).all()
+    return aggregate_daily_patient_visits(appointments)
 
-    return [
-        {
-            "appointment_date": str(item.appointment_date),
-            "total_visits": item.total_visits
-        }
-        for item in visits
-    ]
+
+@router.get("/reports/patient-visits/daily")
+def get_daily_patient_visits_report(
+    limit: int = 30, db: Session = Depends(get_db)
+):
+    appointments = db.query(Appointment).order_by(Appointment.appointment_date.asc()).all()
+    return aggregate_daily_patient_visits(appointments, limit=limit)
+
+
+@router.get("/reports/patient-visits/weekly")
+def get_weekly_patient_visits_report(
+    limit: int = 12, db: Session = Depends(get_db)
+):
+    appointments = db.query(Appointment).order_by(Appointment.appointment_date.asc()).all()
+    return aggregate_weekly_patient_visits(appointments, limit=limit)
+
+
+@router.get("/reports/patient-visits/monthly")
+def get_monthly_patient_visits_report(
+    limit: int = 12, db: Session = Depends(get_db)
+):
+    appointments = db.query(Appointment).order_by(Appointment.appointment_date.asc()).all()
+    return aggregate_monthly_patient_visits(appointments, limit=limit)
 
 
 @router.get("/reports/medicine-usage")
@@ -258,3 +484,131 @@ def get_medicine_usage_report(db: Session = Depends(get_db)):
         }
         for item in usage
     ]
+
+
+@router.get("/reports/summary")
+def get_reports_summary(db: Session = Depends(get_db)):
+    total_patient_visits = db.query(func.count(Appointment.id)).scalar() or 0
+    total_medicines_dispensed = (
+        db.query(func.sum(InventoryTransaction.quantity_released)).scalar() or 0
+    )
+    total_dispensing_transactions = (
+        db.query(func.count(InventoryTransaction.id)).scalar() or 0
+    )
+
+    top_medicine = (
+        db.query(
+            Medicine.name,
+            func.sum(InventoryTransaction.quantity_released).label("total_released"),
+        )
+        .join(InventoryTransaction, InventoryTransaction.medicine_id == Medicine.id)
+        .group_by(Medicine.name)
+        .order_by(func.sum(InventoryTransaction.quantity_released).desc())
+        .first()
+    )
+
+    return {
+        "total_patient_visits": int(total_patient_visits),
+        "total_medicines_dispensed": int(total_medicines_dispensed),
+        "total_dispensing_transactions": int(total_dispensing_transactions),
+        "most_dispensed_medicine": {
+            "medicine_name": top_medicine.name if top_medicine else None,
+            "total_released": int(top_medicine.total_released) if top_medicine and top_medicine.total_released is not None else 0,
+        },
+    }
+
+
+@router.get("/patients")
+def get_patients(search: str = "", db: Session = Depends(get_db)):
+    query = db.query(Patient)
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            (Patient.patient_id.ilike(term))
+            | (Patient.first_name.ilike(term))
+            | (Patient.last_name.ilike(term))
+            | (Patient.email.ilike(term))
+            | (Patient.mobile_number.ilike(term))
+        )
+
+    patients = query.order_by(Patient.created_at.desc(), Patient.id.desc()).all()
+
+    return [
+        {
+            "id": patient.id,
+            "patient_code": patient.patient_id,
+            "full_name": f"{patient.first_name} {patient.last_name}",
+            "birthday": str(patient.birthday),
+            "age": calculate_age(patient.birthday),
+            "sex": patient.sex,
+            "email": patient.email,
+            "mobile_number": patient.mobile_number,
+            "address": patient.address,
+            "is_verified": patient.is_verified,
+            "created_at": str(patient.created_at),
+        }
+        for patient in patients
+    ]
+
+
+@router.get("/patients/{patient_code}")
+def get_patient_record(patient_code: str, db: Session = Depends(get_db)):
+    patient = db.query(Patient).filter(Patient.patient_id == patient_code).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    health_records = (
+        db.query(HealthRecord)
+        .filter(HealthRecord.patient_id == patient.id)
+        .order_by(HealthRecord.recorded_at.desc(), HealthRecord.id.desc())
+        .all()
+    )
+
+    latest_health_record = (
+        serialize_health_record(health_records[0]) if health_records else None
+    )
+
+    appointments = (
+        db.query(Appointment, Doctor)
+        .join(Doctor, Appointment.doctor_id == Doctor.id)
+        .filter(Appointment.patient_id == patient.id)
+        .order_by(Appointment.appointment_date.desc(), Appointment.appointment_time.desc())
+        .all()
+    )
+
+    return {
+        "patient": {
+            "id": patient.id,
+            "patient_code": patient.patient_id,
+            "first_name": patient.first_name,
+            "last_name": patient.last_name,
+            "full_name": f"{patient.first_name} {patient.last_name}",
+            "birthday": str(patient.birthday),
+            "age": calculate_age(patient.birthday),
+            "sex": patient.sex,
+            "email": patient.email,
+            "mobile_number": patient.mobile_number,
+            "address": patient.address,
+            "emergency_contact": patient.emergency_contact,
+            "profile_picture": patient.profile_picture,
+            "is_verified": patient.is_verified,
+            "created_at": str(patient.created_at),
+        },
+        "latest_health_record": latest_health_record,
+        "health_records": [serialize_health_record(record) for record in health_records],
+        "appointments": [
+            {
+                "appointment_id": appointment.id,
+                "appointment_code": appointment.appointment_code,
+                "doctor_name": f"{doctor.first_name} {doctor.last_name}",
+                "specialization": doctor.specialization,
+                "appointment_date": str(appointment.appointment_date),
+                "appointment_time": str(appointment.appointment_time),
+                "queue_number": appointment.queue_number,
+                "reason": appointment.reason,
+                "status": appointment.status,
+            }
+            for appointment, doctor in appointments
+        ],
+    }

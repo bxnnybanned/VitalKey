@@ -1,5 +1,6 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+
 import '../services/auth_service.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
@@ -11,10 +12,10 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen> {
   final AuthService _authService = AuthService();
-  String message = 'Preparing your medical dashboard...';
+  String message = "Checking session and internet connection...";
+  bool showRetry = false;
 
   @override
   void initState() {
@@ -23,6 +24,13 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> startApp() async {
+    if (mounted) {
+      setState(() {
+        showRetry = false;
+        message = "Checking session and internet connection...";
+      });
+    }
+
     await Future.delayed(const Duration(seconds: 2));
 
     final connectivityResult = await Connectivity().checkConnectivity();
@@ -30,7 +38,19 @@ class _SplashScreenState extends State<SplashScreen>
     if (connectivityResult.contains(ConnectivityResult.none)) {
       if (!mounted) return;
       setState(() {
-        message = 'Internet connection is required to access the system.';
+        message = "Internet connection is required before accessing the system.";
+        showRetry = true;
+      });
+      return;
+    }
+
+    final canReachServer = await _authService.canReachServer();
+    if (!canReachServer) {
+      if (!mounted) return;
+      setState(() {
+        message =
+            "Internet connection is required before accessing the system.";
+        showRetry = true;
       });
       return;
     }
@@ -46,6 +66,7 @@ class _SplashScreenState extends State<SplashScreen>
           builder: (_) => DashboardScreen(
             patientName: session["patient_name"] ?? "Patient",
             mobileNumber: session["mobile_number"] ?? "",
+            patientId: session["patient_id"] ?? "",
           ),
         ),
       );
@@ -64,6 +85,7 @@ class _SplashScreenState extends State<SplashScreen>
     const deepBlue = Color(0xFF1E3A8A);
     const textDark = Color(0xFF0F172A);
     const textSoft = Color(0xFF64748B);
+    final compact = MediaQuery.of(context).size.width < 360;
 
     return Scaffold(
       body: Container(
@@ -77,13 +99,13 @@ class _SplashScreenState extends State<SplashScreen>
         child: SafeArea(
           child: Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: EdgeInsets.symmetric(horizontal: compact ? 18 : 24),
               child: Container(
                 width: double.infinity,
                 constraints: const BoxConstraints(maxWidth: 380),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 36,
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 20 : 28,
+                  vertical: compact ? 28 : 36,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.92),
@@ -104,8 +126,8 @@ class _SplashScreenState extends State<SplashScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      height: 96,
-                      width: 96,
+                      height: compact ? 84 : 96,
+                      width: compact ? 84 : 96,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: softBlue,
@@ -116,27 +138,27 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                       child: const Icon(
                         Icons.local_hospital_rounded,
-                        size: 46,
+                        size: 42,
                         color: primaryBlue,
                       ),
                     ),
                     const SizedBox(height: 24),
-                    const Text(
-                      'VitalKey',
+                    Text(
+                      "VitalKey",
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 30,
+                        fontSize: compact ? 26 : 30,
                         fontWeight: FontWeight.w700,
                         color: textDark,
                         letterSpacing: 0.3,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Smart, secure, and simple access to your medical care.',
+                    Text(
+                      "Smart, secure, and simple access to your medical care.",
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 14.5,
+                        fontSize: compact ? 13.5 : 14.5,
                         height: 1.5,
                         color: textSoft,
                       ),
@@ -158,7 +180,7 @@ class _SplashScreenState extends State<SplashScreen>
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13.5,
-                            color: message.contains('required')
+                            color: message.contains("required")
                                 ? Colors.redAccent
                                 : deepBlue,
                             fontWeight: FontWeight.w500,
@@ -167,6 +189,28 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                       ],
                     ),
+                    if (showRetry) ...[
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: startApp,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: primaryBlue,
+                            side: BorderSide(
+                              color: primaryBlue.withOpacity(0.24),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text(
+                            "Retry",
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 28),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -178,7 +222,7 @@ class _SplashScreenState extends State<SplashScreen>
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: const Row(
-                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
                             Icons.favorite_outline_rounded,
@@ -186,12 +230,14 @@ class _SplashScreenState extends State<SplashScreen>
                             color: primaryBlue,
                           ),
                           SizedBox(width: 8),
-                          Text(
-                            'Medical care made calm and clear',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: textSoft,
-                              fontWeight: FontWeight.w500,
+                          Expanded(
+                            child: Text(
+                              "Online access to your appointments and records",
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: textSoft,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],

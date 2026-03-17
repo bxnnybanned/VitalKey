@@ -1,34 +1,39 @@
 import { useEffect, useState } from "react";
+
 import {
-  getDoctors,
   createDoctor,
-  updateDoctor,
   deleteDoctor,
+  getDoctors,
+  updateDoctor,
 } from "../api/doctorApi";
+
+const initialForm = {
+  doctor_code: "",
+  first_name: "",
+  last_name: "",
+  specialization: "",
+  is_active: true,
+};
 
 export default function Doctors() {
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  const [form, setForm] = useState({
-    doctor_code: "",
-    first_name: "",
-    last_name: "",
-    specialization: "",
-    is_active: true,
-  });
-
+  const [success, setSuccess] = useState("");
+  const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
 
   const fetchDoctors = async () => {
     try {
       setLoading(true);
+      setError("");
       const data = await getDoctors();
       setDoctors(data);
     } catch (err) {
-      setError("Failed to load doctors.");
-      console.error(err);
+      setError(
+        err.response?.data?.detail || err.message || "Failed to load doctors.",
+      );
     } finally {
       setLoading(false);
     }
@@ -40,20 +45,14 @@ export default function Doctors() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm({
-      ...form,
+    setForm((current) => ({
+      ...current,
       [name]: type === "checkbox" ? checked : value,
-    });
+    }));
   };
 
   const resetForm = () => {
-    setForm({
-      doctor_code: "",
-      first_name: "",
-      last_name: "",
-      specialization: "",
-      is_active: true,
-    });
+    setForm(initialForm);
     setEditingId(null);
   };
 
@@ -61,17 +60,26 @@ export default function Doctors() {
     e.preventDefault();
 
     try {
+      setSaving(true);
+      setError("");
+      setSuccess("");
+
       if (editingId) {
         await updateDoctor(editingId, form);
+        setSuccess("Doctor updated successfully.");
       } else {
         await createDoctor(form);
+        setSuccess("Doctor added successfully.");
       }
 
       resetForm();
-      fetchDoctors();
+      await fetchDoctors();
     } catch (err) {
-      console.error(err);
-      alert("Failed to save doctor.");
+      setError(
+        err.response?.data?.detail || err.message || "Failed to save doctor.",
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -83,39 +91,56 @@ export default function Doctors() {
       specialization: doctor.specialization || "",
       is_active: doctor.is_active ?? true,
     });
-    setEditingId(doctor.id);
+    setEditingId(doctor.doctor_id);
+    setError("");
+    setSuccess("");
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (doctorId) => {
     const confirmed = window.confirm(
-      "Are you sure you want to delete this doctor?",
+      "Are you sure you want to delete this doctor record?",
     );
     if (!confirmed) return;
 
     try {
-      await deleteDoctor(id);
-      fetchDoctors();
+      setError("");
+      setSuccess("");
+      await deleteDoctor(doctorId);
+      setSuccess("Doctor deleted successfully.");
+
+      if (editingId === doctorId) {
+        resetForm();
+      }
+
+      await fetchDoctors();
     } catch (err) {
-      console.error(err);
-      alert("Failed to delete doctor.");
+      setError(
+        err.response?.data?.detail || err.message || "Failed to delete doctor.",
+      );
     }
   };
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Doctors Management</h1>
-        <p className="text-gray-500">Add, edit, and manage doctor records.</p>
-      </div>
+    <div className="admin-page">
+      <section className="admin-header">
+        <h1 className="admin-title">Doctor Management</h1>
+        <p className="admin-subtitle">
+          Add, edit, and manage doctor records for the health center.
+        </p>
+      </section>
 
-      <div className="bg-white rounded-2xl shadow p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">
+      {error && <div className="admin-alert-error">{error}</div>}
+
+      {success && <div className="admin-alert-success">{success}</div>}
+
+      <section className="admin-card-strong">
+        <h2 className="admin-card-title mb-4">
           {editingId ? "Edit Doctor" : "Add Doctor"}
         </h2>
 
         <form
           onSubmit={handleSubmit}
-          className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          className="grid grid-cols-1 gap-4 md:grid-cols-2"
         >
           <input
             type="text"
@@ -123,8 +148,9 @@ export default function Doctors() {
             value={form.doctor_code}
             onChange={handleChange}
             placeholder="Doctor Code"
-            className="border rounded-xl px-4 py-3"
+            className="admin-input"
             required
+            disabled={Boolean(editingId)}
           />
 
           <input
@@ -133,7 +159,7 @@ export default function Doctors() {
             value={form.specialization}
             onChange={handleChange}
             placeholder="Specialization"
-            className="border rounded-xl px-4 py-3"
+            className="admin-input"
             required
           />
 
@@ -143,7 +169,7 @@ export default function Doctors() {
             value={form.first_name}
             onChange={handleChange}
             placeholder="First Name"
-            className="border rounded-xl px-4 py-3"
+            className="admin-input"
             required
           />
 
@@ -153,65 +179,72 @@ export default function Doctors() {
             value={form.last_name}
             onChange={handleChange}
             placeholder="Last Name"
-            className="border rounded-xl px-4 py-3"
+            className="admin-input"
             required
           />
 
-          <label className="flex items-center gap-2 md:col-span-2">
+          <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-700 md:col-span-2">
             <input
               type="checkbox"
               name="is_active"
               checked={form.is_active}
               onChange={handleChange}
             />
-            <span>Active</span>
+            Active doctor
           </label>
 
-          <div className="md:col-span-2 flex gap-3">
+          <div className="flex gap-3 md:col-span-2">
             <button
               type="submit"
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700"
+              disabled={saving}
+              className="admin-button"
             >
-              {editingId ? "Update Doctor" : "Add Doctor"}
+              {saving
+                ? editingId
+                  ? "Updating..."
+                  : "Adding..."
+                : editingId
+                  ? "Update Doctor"
+                  : "Add Doctor"}
             </button>
 
             {editingId && (
               <button
                 type="button"
                 onClick={resetForm}
-                className="bg-gray-300 text-gray-800 px-6 py-3 rounded-xl font-semibold hover:bg-gray-400"
+                className="admin-button-secondary"
               >
                 Cancel
               </button>
             )}
           </div>
         </form>
-      </div>
+      </section>
 
-      <div className="bg-white rounded-2xl shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Doctor List</h2>
+      <section className="admin-card-strong">
+        <h2 className="admin-card-title mb-4">
+          Doctor List
+        </h2>
 
         {loading ? (
           <p className="text-gray-500">Loading doctors...</p>
-        ) : error ? (
-          <p className="text-red-500">{error}</p>
         ) : doctors.length === 0 ? (
-          <p className="text-gray-500">No doctors found.</p>
+          <p className="text-gray-500">No doctor records found.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="admin-table">
               <thead>
                 <tr className="bg-gray-100 text-left">
                   <th className="p-3">Code</th>
                   <th className="p-3">Name</th>
                   <th className="p-3">Specialization</th>
                   <th className="p-3">Status</th>
-                  <th className="p-3">Actions</th>
+                  <th className="p-3">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {doctors.map((doctor) => (
-                  <tr key={doctor.id} className="border-t">
+                  <tr key={doctor.doctor_id} className="border-t">
                     <td className="p-3">{doctor.doctor_code}</td>
                     <td className="p-3">
                       {doctor.first_name} {doctor.last_name}
@@ -219,7 +252,7 @@ export default function Doctors() {
                     <td className="p-3">{doctor.specialization}</td>
                     <td className="p-3">
                       <span
-                        className={`px-3 py-1 rounded-full text-sm ${
+                        className={`rounded-full px-3 py-1 text-sm ${
                           doctor.is_active
                             ? "bg-green-100 text-green-700"
                             : "bg-red-100 text-red-700"
@@ -228,19 +261,23 @@ export default function Doctors() {
                         {doctor.is_active ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="p-3 flex gap-2">
-                      <button
-                        onClick={() => handleEdit(doctor)}
-                        className="bg-yellow-400 text-white px-4 py-2 rounded-lg hover:bg-yellow-500"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(doctor.id)}
-                        className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-                      >
-                        Delete
-                      </button>
+                    <td className="p-3">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(doctor)}
+                          className="rounded-lg bg-yellow-400 px-4 py-2 text-white hover:bg-yellow-500"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(doctor.doctor_id)}
+                          className="rounded-lg bg-red-500 px-4 py-2 text-white hover:bg-red-600"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -248,7 +285,7 @@ export default function Doctors() {
             </table>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

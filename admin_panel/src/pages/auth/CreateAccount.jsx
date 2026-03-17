@@ -48,28 +48,38 @@ export default function CreateAccount() {
 
       navigate("/login");
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to create account");
+      setError(
+        err.response?.data?.detail ||
+          err.message ||
+          "Failed to create account"
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-white to-blue-100 flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-lg bg-white shadow-xl rounded-2xl p-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-cyan-100 flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-lg rounded-[28px] border border-white/70 bg-white/90 p-8 shadow-2xl shadow-slate-200/60 backdrop-blur">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-blue-600">VitalKey</h1>
           <p className="text-gray-500 mt-2">Create Admin Account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm text-gray-700">First Name</label>
               <input
                 name="firstName"
                 onChange={handleChange}
-                className="w-full border rounded-xl px-4 py-3 mt-1"
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
             </div>
@@ -79,7 +89,7 @@ export default function CreateAccount() {
               <input
                 name="lastName"
                 onChange={handleChange}
-                className="w-full border rounded-xl px-4 py-3 mt-1"
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
             </div>
@@ -91,7 +101,7 @@ export default function CreateAccount() {
               type="email"
               name="email"
               onChange={handleChange}
-              className="w-full border rounded-xl px-4 py-3 mt-1"
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
               required
             />
           </div>
@@ -105,7 +115,7 @@ export default function CreateAccount() {
                 type={showPassword ? "text" : "password"}
                 name="password"
                 onChange={handleChange}
-                className="w-full border rounded-xl px-4 py-3 pr-12"
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-12 focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
 
@@ -128,7 +138,7 @@ export default function CreateAccount() {
                 type={showConfirmPassword ? "text" : "password"}
                 name="confirmPassword"
                 onChange={handleChange}
-                className="w-full border rounded-xl px-4 py-3 pr-12"
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-12 focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
 
@@ -142,8 +152,12 @@ export default function CreateAccount() {
             </div>
           </div>
 
-          <button className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition">
-            Create Account
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition disabled:cursor-not-allowed disabled:bg-blue-400"
+          >
+            {loading ? "Creating Account..." : "Create Account"}
           </button>
         </form>
 

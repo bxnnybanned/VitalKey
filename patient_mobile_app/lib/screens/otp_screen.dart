@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/auth_service.dart';
 import 'additional_info_screen.dart';
 
@@ -18,10 +19,17 @@ class _OtpScreenState extends State<OtpScreen> {
   bool isLoading = false;
   bool isResending = false;
 
+  static const Color _primaryBlue = Color(0xFF2563EB);
+  static const Color _softBlue = Color(0xFFEFF6FF);
+  static const Color _deepBlue = Color(0xFF1E3A8A);
+  static const Color _textDark = Color(0xFF0F172A);
+  static const Color _textSoft = Color(0xFF64748B);
+  static const Color _borderColor = Color(0xFFD6E4F0);
+
   Future<void> verifyOtp() async {
     if (otpController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the OTP code.')),
+        const SnackBar(content: Text("Please enter the OTP code.")),
       );
       return;
     }
@@ -95,12 +103,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryBlue = Color(0xFF2563EB);
-    const softBlue = Color(0xFFEFF6FF);
-    const deepBlue = Color(0xFF1E3A8A);
-    const textDark = Color(0xFF0F172A);
-    const textSoft = Color(0xFF64748B);
-    const borderColor = Color(0xFFD6E4F0);
+    final compact = MediaQuery.of(context).size.width < 360;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
@@ -115,24 +118,27 @@ class _OtpScreenState extends State<OtpScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 16 : 22,
+                vertical: compact ? 18 : 24,
+              ),
               child: Container(
                 width: double.infinity,
                 constraints: const BoxConstraints(maxWidth: 420),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 30,
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 18 : 24,
+                  vertical: compact ? 24 : 30,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.94),
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(
-                    color: primaryBlue.withOpacity(0.08),
+                    color: _primaryBlue.withOpacity(0.08),
                     width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: primaryBlue.withOpacity(0.10),
+                      color: _primaryBlue.withOpacity(0.10),
                       blurRadius: 28,
                       offset: const Offset(0, 14),
                     ),
@@ -141,51 +147,51 @@ class _OtpScreenState extends State<OtpScreen> {
                 child: Column(
                   children: [
                     Container(
-                      height: 82,
-                      width: 82,
+                      height: compact ? 72 : 82,
+                      width: compact ? 72 : 82,
                       decoration: BoxDecoration(
-                        color: softBlue,
+                        color: _softBlue,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: primaryBlue.withOpacity(0.12),
+                          color: _primaryBlue.withOpacity(0.12),
                           width: 1.4,
                         ),
                       ),
                       child: const Icon(
                         Icons.verified_user_rounded,
-                        size: 40,
-                        color: primaryBlue,
+                        size: 36,
+                        color: _primaryBlue,
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
-                      'OTP Verification',
+                    Text(
+                      "OTP Verification",
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: compact ? 24 : 28,
                         fontWeight: FontWeight.w700,
-                        color: textDark,
+                        color: _textDark,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Enter the verification code sent to\n${widget.email}',
+                      "Enter the verification code sent to ${widget.email}. After verification, you will continue to the additional information step.",
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 14,
                         height: 1.5,
-                        color: textSoft,
+                        color: _textSoft,
                       ),
                     ),
                     const SizedBox(height: 28),
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'OTP Code',
+                        "OTP Code",
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: deepBlue.withOpacity(0.90),
+                          color: _deepBlue.withOpacity(0.90),
                         ),
                       ),
                     ),
@@ -195,20 +201,20 @@ class _OtpScreenState extends State<OtpScreen> {
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: textDark,
+                        color: _textDark,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 4,
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Enter OTP',
+                        hintText: "Enter OTP",
                         hintStyle: const TextStyle(
-                          color: textSoft,
+                          color: _textSoft,
                           letterSpacing: 2,
                         ),
                         prefixIcon: const Icon(
                           Icons.lock_clock_outlined,
-                          color: primaryBlue,
+                          color: _primaryBlue,
                         ),
                         filled: true,
                         fillColor: const Color(0xFFFDFEFF),
@@ -218,12 +224,12 @@ class _OtpScreenState extends State<OtpScreen> {
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(18),
-                          borderSide: const BorderSide(color: borderColor),
+                          borderSide: const BorderSide(color: _borderColor),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(18),
                           borderSide: const BorderSide(
-                            color: primaryBlue,
+                            color: _primaryBlue,
                             width: 1.4,
                           ),
                         ),
@@ -232,11 +238,11 @@ class _OtpScreenState extends State<OtpScreen> {
                     const SizedBox(height: 22),
                     SizedBox(
                       width: double.infinity,
-                      height: 54,
+                      height: 52,
                       child: ElevatedButton(
                         onPressed: isLoading ? null : verifyOtp,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryBlue,
+                          backgroundColor: _primaryBlue,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -255,7 +261,7 @@ class _OtpScreenState extends State<OtpScreen> {
                                 ),
                               )
                             : const Text(
-                                'Verify',
+                                "Verify OTP",
                                 style: TextStyle(
                                   fontSize: 15.5,
                                   fontWeight: FontWeight.w600,
@@ -265,10 +271,10 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                     const SizedBox(height: 14),
                     TextButton(
-                      style: TextButton.styleFrom(foregroundColor: primaryBlue),
+                      style: TextButton.styleFrom(foregroundColor: _primaryBlue),
                       onPressed: isResending ? null : resendOtp,
                       child: Text(
-                        isResending ? 'Resending...' : 'Resend OTP',
+                        isResending ? "Resending..." : "Resend OTP",
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -279,24 +285,25 @@ class _OtpScreenState extends State<OtpScreen> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: softBlue.withOpacity(0.65),
+                        color: _softBlue.withOpacity(0.65),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
                             Icons.medical_information_outlined,
-                            color: primaryBlue,
+                            color: _primaryBlue,
                             size: 18,
                           ),
                           SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'For your security, please verify your account before continuing.',
+                              "Invalid or expired codes can be requested again using the resend OTP button.",
                               style: TextStyle(
                                 fontSize: 12.5,
                                 height: 1.4,
-                                color: textSoft,
+                                color: _textSoft,
                               ),
                             ),
                           ),

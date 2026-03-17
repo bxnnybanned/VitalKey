@@ -126,8 +126,11 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                },
+                child: const Text('Done'),
               ),
             ],
           ),
@@ -165,6 +168,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     const textDark = Color(0xFF0F172A);
     const textSoft = Color(0xFF64748B);
     const borderColor = Color(0xFFD6E4F0);
+    final compact = MediaQuery.of(context).size.width < 360;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
@@ -181,16 +185,16 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
               ? const Center(child: CircularProgressIndicator())
               : Center(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 24,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compact ? 14 : 18,
+                      vertical: compact ? 18 : 24,
                     ),
                     child: Container(
                       width: double.infinity,
                       constraints: const BoxConstraints(maxWidth: 460),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 30,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: compact ? 16 : 20,
+                        vertical: compact ? 24 : 30,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.94),
@@ -212,8 +216,8 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                         children: [
                           Center(
                             child: Container(
-                              height: 82,
-                              width: 82,
+                              height: compact ? 72 : 82,
+                              width: compact ? 72 : 82,
                               decoration: BoxDecoration(
                                 color: softBlue,
                                 shape: BoxShape.circle,
@@ -224,30 +228,30 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                               ),
                               child: const Icon(
                                 Icons.calendar_month_rounded,
-                                size: 40,
+                                size: 36,
                                 color: primaryBlue,
                               ),
                             ),
                           ),
                           const SizedBox(height: 20),
-                          const Center(
+                          Center(
                             child: Text(
                               'Book Appointment',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 28,
+                                fontSize: compact ? 24 : 28,
                                 fontWeight: FontWeight.w700,
                                 color: textDark,
                               ),
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Center(
+                          Center(
                             child: Text(
-                              'Schedule your visit with a doctor in a simple and secure way.',
+                              'Choose your doctor, select an available schedule, and submit your reason for visit.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: compact ? 13 : 14,
                                 height: 1.5,
                                 color: textSoft,
                               ),
@@ -480,7 +484,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
                           SizedBox(
                             width: double.infinity,
-                            height: 54,
+                            height: 52,
                             child: ElevatedButton(
                               onPressed: isSubmitting
                                   ? null
@@ -527,6 +531,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: const Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Icon(
                                   Icons.info_outline_rounded,
@@ -536,7 +541,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                                 SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    'Choose your preferred doctor, available schedule, and provide a clear reason for your visit.',
+                                    'Valid bookings are saved in the system and a queue number is automatically assigned for your consultation.',
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       height: 1.4,

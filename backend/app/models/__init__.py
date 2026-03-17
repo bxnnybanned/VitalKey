@@ -9,3 +9,4 @@ from .prescription import Prescription
 from .prescription_item import PrescriptionItem
 from .inventory_transaction import InventoryTransaction
 from .medicine_request import MedicineRequest
+from .clinic_setting import ClinicSetting
