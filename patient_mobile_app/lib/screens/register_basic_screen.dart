@@ -31,7 +31,6 @@ class _RegisterBasicScreenState extends State<RegisterBasicScreen> {
 
   static const Color _primaryBlue = Color(0xFF2563EB);
   static const Color _softBlue = Color(0xFFEFF6FF);
-  static const Color _deepBlue = Color(0xFF1E3A8A);
   static const Color _textDark = Color(0xFF0F172A);
   static const Color _textSoft = Color(0xFF64748B);
   static const Color _borderColor = Color(0xFFD6E4F0);
