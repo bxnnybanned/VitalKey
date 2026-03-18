@@ -38,12 +38,20 @@ export default function CreateAccount() {
     setError("");
     setLoading(true);
 
+    let storedAdmin = null;
+    try {
+      storedAdmin = JSON.parse(localStorage.getItem("admin") || "null");
+    } catch {
+      storedAdmin = null;
+    }
+
     try {
       await api.post("/admin-auth/register", {
         first_name: form.firstName,
         last_name: form.lastName,
         email: form.email,
         password: form.password,
+        requester_admin_id: storedAdmin?.role === "super_admin" ? storedAdmin.id : undefined,
       });
 
       navigate("/login");

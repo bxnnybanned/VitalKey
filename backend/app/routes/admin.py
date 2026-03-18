@@ -13,9 +13,43 @@ from app.models.prescription import Prescription
 from app.models.inventory_transaction import InventoryTransaction
 from app.models.clinic_setting import ClinicSetting
 from app.models.health_record import HealthRecord
+from app.models.admin import Admin
+from app.utils.security import hash_password
 from app.utils.age import calculate_age
 
 router = APIRouter(prefix="/admin", tags=["Admin Panel"])
+
+
+def get_super_admin(requester_admin_id: int, db: Session):
+    requester_admin = (
+        db.query(Admin)
+        .filter(Admin.id == requester_admin_id, Admin.is_active == True)
+        .first()
+    )
+
+    if not requester_admin or requester_admin.role != "super_admin":
+        raise HTTPException(
+            status_code=403, detail="Only a super admin can perform this action"
+        )
+
+    return requester_admin
+
+
+def serialize_admin(admin: Admin, creator: Admin | None = None):
+    return {
+        "admin_id": admin.id,
+        "first_name": admin.first_name,
+        "last_name": admin.last_name,
+        "full_name": f"{admin.first_name} {admin.last_name}",
+        "email": admin.email,
+        "role": admin.role,
+        "is_active": admin.is_active,
+        "created_by": admin.created_by,
+        "created_by_name": (
+            f"{creator.first_name} {creator.last_name}" if creator else None
+        ),
+        "created_at": str(admin.created_at),
+    }
 
 
 def parse_time_value(value, field_name: str):
@@ -241,6 +275,7 @@ def get_doctors(db: Session = Depends(get_db)):
             "first_name": doctor.first_name,
             "last_name": doctor.last_name,
             "full_name": f"{doctor.first_name} {doctor.last_name}",
+            "username": doctor.username,
             "specialization": doctor.specialization,
             "is_active": doctor.is_active
         }
@@ -259,10 +294,20 @@ def add_doctor(payload: dict, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="Doctor code already exists")
 
+    username = payload.get("username")
+    password = payload.get("password")
+
+    if username and str(username).strip():
+        existing_username = db.query(Doctor).filter(Doctor.username == username).first()
+        if existing_username:
+            raise HTTPException(status_code=400, detail="Username already exists")
+
     doctor = Doctor(
         doctor_code=payload["doctor_code"],
         first_name=payload["first_name"],
         last_name=payload["last_name"],
+        username=username.strip() if username and str(username).strip() else None,
+        password_hash=hash_password(password) if password and str(password).strip() else None,
         specialization=payload.get("specialization"),
         is_active=payload.get("is_active", True)
     )
@@ -284,8 +329,23 @@ def update_doctor(doctor_id: int, payload: dict, db: Session = Depends(get_db)):
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found")
 
+    username = payload.get("username", doctor.username)
+    password = payload.get("password")
+
+    if username and str(username).strip():
+        existing_username = (
+            db.query(Doctor)
+            .filter(Doctor.username == username, Doctor.id != doctor_id)
+            .first()
+        )
+        if existing_username:
+            raise HTTPException(status_code=400, detail="Username already exists")
+
     doctor.first_name = payload.get("first_name", doctor.first_name)
     doctor.last_name = payload.get("last_name", doctor.last_name)
+    doctor.username = username.strip() if username and str(username).strip() else None
+    if password and str(password).strip():
+        doctor.password_hash = hash_password(password)
     doctor.specialization = payload.get("specialization", doctor.specialization)
     doctor.is_active = payload.get("is_active", doctor.is_active)
 
@@ -611,4 +671,78 @@ def get_patient_record(patient_code: str, db: Session = Depends(get_db)):
             }
             for appointment, doctor in appointments
         ],
+    }
+
+
+@router.get("/admins")
+def get_admins(requester_admin_id: int, db: Session = Depends(get_db)):
+    get_super_admin(requester_admin_id, db)
+
+    admins = db.query(Admin).order_by(Admin.created_at.desc(), Admin.id.desc()).all()
+    creator_map = {
+        creator.id: creator for creator in db.query(Admin).all()
+    }
+
+    return [
+        serialize_admin(admin, creator_map.get(admin.created_by))
+        for admin in admins
+    ]
+
+
+@router.post("/admins")
+def create_admin(payload: dict, db: Session = Depends(get_db)):
+    required_fields = ["requester_admin_id", "first_name", "last_name", "email", "password"]
+
+    for field in required_fields:
+        if field not in payload or not str(payload[field]).strip():
+            raise HTTPException(status_code=400, detail=f"{field} is required")
+
+    requester_admin = get_super_admin(int(payload["requester_admin_id"]), db)
+
+    existing_admin = db.query(Admin).filter(Admin.email == payload["email"]).first()
+    if existing_admin:
+        raise HTTPException(status_code=400, detail="Email already exists")
+
+    admin = Admin(
+        first_name=payload["first_name"],
+        last_name=payload["last_name"],
+        email=payload["email"],
+        password=hash_password(payload["password"]),
+        role="admin",
+        created_by=requester_admin.id,
+        is_active=payload.get("is_active", True),
+    )
+
+    db.add(admin)
+    db.commit()
+    db.refresh(admin)
+
+    return {
+        "message": "Admin added successfully",
+        "admin": serialize_admin(admin, requester_admin),
+    }
+
+
+@router.put("/admins/{admin_id}/status")
+def update_admin_status(admin_id: int, payload: dict, db: Session = Depends(get_db)):
+    if "requester_admin_id" not in payload:
+        raise HTTPException(status_code=400, detail="requester_admin_id is required")
+
+    requester_admin = get_super_admin(int(payload["requester_admin_id"]), db)
+
+    admin = db.query(Admin).filter(Admin.id == admin_id).first()
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin not found")
+
+    if admin.role == "super_admin":
+        raise HTTPException(status_code=400, detail="Super admin status cannot be changed")
+
+    admin.is_active = bool(payload.get("is_active", admin.is_active))
+    admin.created_by = admin.created_by or requester_admin.id
+    db.commit()
+    db.refresh(admin)
+
+    return {
+        "message": "Admin status updated successfully",
+        "admin": serialize_admin(admin, requester_admin),
     }

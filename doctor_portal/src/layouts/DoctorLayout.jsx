@@ -1,30 +1,11 @@
-import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
-const navigationItems = [
-  { path: "/dashboard", label: "Dashboard" },
-  { path: "/admin-management", label: "Admin Management", superAdminOnly: true },
-  { path: "/doctors", label: "Doctor Management" },
-  { path: "/clinic-settings", label: "Clinic Settings" },
-  { path: "/patient-records", label: "Patient Records" },
-  { path: "/medicines", label: "Medicine Catalog" },
-  { path: "/appointments", label: "Appointment Management" },
-  { path: "/reports", label: "Reports" },
-];
+const navigationItems = [{ path: "/dashboard", label: "Today's Patients" }];
 
-export default function AdminLayout() {
+export default function DoctorLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const admin = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("admin") || "null");
-    } catch {
-      return null;
-    }
-  })();
-
-  const visibleNavigationItems = navigationItems.filter(
-    (item) => !item.superAdminOnly || admin?.role === "super_admin"
-  );
+  const doctor = JSON.parse(localStorage.getItem("doctor") || "null");
 
   const navItemClass = (path) =>
     `group relative block overflow-hidden rounded-2xl px-4 py-3 text-sm font-medium transition ${
@@ -34,8 +15,8 @@ export default function AdminLayout() {
     }`;
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("admin");
+    localStorage.removeItem("doctor_token");
+    localStorage.removeItem("doctor");
     navigate("/login");
   };
 
@@ -43,12 +24,15 @@ export default function AdminLayout() {
     <div className="min-h-screen">
       <div className="flex min-h-screen">
         <aside className="sticky top-0 hidden h-screen w-[290px] shrink-0 border-r border-slate-200/70 bg-white/75 px-5 py-6 backdrop-blur-xl xl:flex xl:flex-col">
-          <div className="admin-card-strong px-5 py-5">
+          <div className="portal-card-strong px-5 py-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                  Admin Panel
+                  Doctor Portal
                 </h1>
+                <p className="mt-2 text-sm text-slate-500">
+                  {doctor?.full_name || "Doctor"}
+                </p>
               </div>
               <div className="rounded-2xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
                 Live
@@ -57,17 +41,14 @@ export default function AdminLayout() {
           </div>
 
           <nav className="mt-6 flex-1 space-y-2">
-            {visibleNavigationItems.map((item) => (
+            {navigationItems.map((item) => (
               <Link key={item.path} to={item.path} className={navItemClass(item.path)}>
                 <span className="relative z-10">{item.label}</span>
-                {location.pathname !== item.path && (
-                  <span className="absolute inset-y-2 left-2 w-1 rounded-full bg-transparent transition group-hover:bg-blue-100" />
-                )}
               </Link>
             ))}
           </nav>
 
-          <div className="admin-card mt-6 p-4">
+          <div className="portal-card mt-6 p-4">
             <button
               onClick={handleLogout}
               className="w-full rounded-2xl bg-red-500 px-4 py-3 font-semibold text-white transition hover:bg-red-600"
@@ -83,12 +64,12 @@ export default function AdminLayout() {
             <div className="absolute bottom-[-10rem] right-[-8rem] h-80 w-80 rounded-full bg-emerald-200/20 blur-3xl" />
           </div>
 
-          <div className="relative mx-auto max-w-[1500px]">
-            <div className="admin-card mb-5 flex items-center justify-between gap-4 px-5 py-4 xl:hidden">
+          <div className="relative mx-auto max-w-[1600px]">
+            <div className="portal-card mb-5 flex items-center justify-between gap-4 px-5 py-4 xl:hidden">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
-                  {visibleNavigationItems.find((item) => item.path === location.pathname)?.label ||
-                    "Admin Panel"}
+                  {navigationItems.find((item) => item.path === location.pathname)?.label ||
+                    "Doctor Portal"}
                 </h2>
               </div>
               <button

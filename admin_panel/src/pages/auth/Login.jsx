@@ -41,6 +41,10 @@ export default function Login() {
         localStorage.setItem("token", response.data.access_token);
       }
 
+      if (response.data.admin) {
+        localStorage.setItem("admin", JSON.stringify(response.data.admin));
+      }
+
       navigate("/dashboard");
     } catch (err) {
       setError(

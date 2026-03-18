@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from datetime import datetime
 from app.db import Base
 
@@ -10,5 +10,7 @@ class Admin(Base):
     last_name = Column(String(100), nullable=False)
     email = Column(String(150), unique=True, nullable=False, index=True)
     password = Column(String(255), nullable=False)
+    role = Column(String(50), nullable=False, default="admin")
+    created_by = Column(Integer, ForeignKey("admins.id"), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

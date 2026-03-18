@@ -11,8 +11,46 @@ from app.models.consultation import Consultation
 from app.schemas.consultation import SaveConsultationSchema
 from app.utils.consultation_code import generate_consultation_code
 from app.utils.age import calculate_age
+from app.utils.security import verify_password
 
 router = APIRouter(prefix="/doctor", tags=["Doctor Portal"])
+
+
+@router.post("/login")
+def login_doctor(payload: dict, db: Session = Depends(get_db)):
+    username = str(payload.get("username", "")).strip()
+    password = payload.get("password")
+
+    if not username or not password:
+        raise HTTPException(
+            status_code=400, detail="Username and password are required"
+        )
+
+    doctor = (
+        db.query(Doctor)
+        .filter(Doctor.username == username, Doctor.is_active == True)
+        .first()
+    )
+
+    if not doctor or not doctor.password_hash:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    if not verify_password(password, doctor.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    return {
+        "message": "Login successful",
+        "doctor": {
+            "doctor_id": doctor.id,
+            "doctor_code": doctor.doctor_code,
+            "first_name": doctor.first_name,
+            "last_name": doctor.last_name,
+            "full_name": f"{doctor.first_name} {doctor.last_name}",
+            "username": doctor.username,
+            "specialization": doctor.specialization,
+        },
+        "access_token": f"doctor-{doctor.id}",
+    }
 
 
 @router.get("/today-patients/{doctor_id}")
@@ -76,6 +114,14 @@ def get_patient_details(patient_code: str, db: Session = Depends(get_db)):
             "recorded_at": str(latest_record.recorded_at)
         }
 
+    consultation_history = (
+        db.query(Consultation, Doctor)
+        .join(Doctor, Consultation.doctor_id == Doctor.id)
+        .filter(Consultation.patient_id == patient.id)
+        .order_by(Consultation.created_at.desc(), Consultation.id.desc())
+        .all()
+    )
+
     return {
         "patient_code": patient.patient_id,
         "first_name": patient.first_name,
@@ -87,7 +133,18 @@ def get_patient_details(patient_code: str, db: Session = Depends(get_db)):
         "mobile_number": patient.mobile_number,
         "address": patient.address,
         "emergency_contact": patient.emergency_contact,
-        "latest_health_record": latest_health
+        "latest_health_record": latest_health,
+        "consultation_history": [
+            {
+                "consultation_id": consultation.id,
+                "consultation_code": consultation.consultation_code,
+                "doctor_name": f"{doctor.first_name} {doctor.last_name}",
+                "diagnosis": consultation.diagnosis,
+                "consultation_notes": consultation.consultation_notes,
+                "created_at": str(consultation.created_at),
+            }
+            for consultation, doctor in consultation_history
+        ],
     }
 
 

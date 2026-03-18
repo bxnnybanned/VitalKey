@@ -4,6 +4,7 @@ import Login from "./pages/auth/Login";
 import CreateAccount from "./pages/auth/CreateAccount";
 
 import Dashboard from "./pages/Dashboard";
+import AdminManagement from "./pages/AdminManagement";
 import Doctors from "./pages/Doctors";
 import ClinicSettings from "./pages/ClinicSettings";
 import PatientRecords from "./pages/PatientRecords";
@@ -29,6 +30,7 @@ export default function App() {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/admin-management" element={<AdminManagement />} />
         <Route path="/doctors" element={<Doctors />} />
         <Route path="/clinic-settings" element={<ClinicSettings />} />
         <Route path="/patient-records" element={<PatientRecords />} />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 import {
   createDoctor,
@@ -11,6 +12,8 @@ const initialForm = {
   doctor_code: "",
   first_name: "",
   last_name: "",
+  username: "",
+  password: "",
   specialization: "",
   is_active: true,
 };
@@ -23,6 +26,7 @@ export default function Doctors() {
   const [success, setSuccess] = useState("");
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const fetchDoctors = async () => {
     try {
@@ -54,6 +58,7 @@ export default function Doctors() {
   const resetForm = () => {
     setForm(initialForm);
     setEditingId(null);
+    setShowPassword(false);
   };
 
   const handleSubmit = async (e) => {
@@ -88,6 +93,8 @@ export default function Doctors() {
       doctor_code: doctor.doctor_code || "",
       first_name: doctor.first_name || "",
       last_name: doctor.last_name || "",
+      username: doctor.username || "",
+      password: "",
       specialization: doctor.specialization || "",
       is_active: doctor.is_active ?? true,
     });
@@ -125,7 +132,7 @@ export default function Doctors() {
       <section className="admin-header">
         <h1 className="admin-title">Doctor Management</h1>
         <p className="admin-subtitle">
-          Add, edit, and manage doctor records for the health center.
+          Add, edit, and manage doctor records and doctor portal login credentials.
         </p>
       </section>
 
@@ -162,6 +169,39 @@ export default function Doctors() {
             className="admin-input"
             required
           />
+
+          <input
+            type="text"
+            name="username"
+            value={form.username}
+            onChange={handleChange}
+            placeholder="Doctor Portal Username"
+            className="admin-input"
+          />
+
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              placeholder={
+                editingId
+                  ? "New Password (optional)"
+                  : "Doctor Portal Password"
+              }
+              className="admin-input pr-12"
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowPassword((current) => !current)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-blue-600"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
 
           <input
             type="text"
@@ -237,6 +277,7 @@ export default function Doctors() {
                 <tr className="bg-gray-100 text-left">
                   <th className="p-3">Code</th>
                   <th className="p-3">Name</th>
+                  <th className="p-3">Username</th>
                   <th className="p-3">Specialization</th>
                   <th className="p-3">Status</th>
                   <th className="p-3">Action</th>
@@ -249,6 +290,7 @@ export default function Doctors() {
                     <td className="p-3">
                       {doctor.first_name} {doctor.last_name}
                     </td>
+                    <td className="p-3">{doctor.username || "-"}</td>
                     <td className="p-3">{doctor.specialization}</td>
                     <td className="p-3">
                       <span

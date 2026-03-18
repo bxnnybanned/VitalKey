@@ -18,11 +18,36 @@ def register_admin(payload: dict, db: Session = Depends(get_db)):
     if existing_admin:
         raise HTTPException(status_code=400, detail="Email already exists")
 
+    total_admins = db.query(Admin).count()
+    requester_admin = None
+
+    if total_admins > 0:
+        requester_admin_id = payload.get("requester_admin_id")
+        if not requester_admin_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Only a super admin can create another admin account",
+            )
+
+        requester_admin = (
+            db.query(Admin)
+            .filter(Admin.id == requester_admin_id, Admin.is_active == True)
+            .first()
+        )
+
+        if not requester_admin or requester_admin.role != "super_admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Only a super admin can create another admin account",
+            )
+
     admin = Admin(
         first_name=payload["first_name"],
         last_name=payload["last_name"],
         email=payload["email"],
         password=hash_password(payload["password"]),
+        role="super_admin" if total_admins == 0 else "admin",
+        created_by=requester_admin.id if requester_admin else None,
         is_active=True
     )
 
@@ -33,7 +58,8 @@ def register_admin(payload: dict, db: Session = Depends(get_db)):
     return {
         "message": "Admin account created successfully",
         "admin_id": admin.id,
-        "email": admin.email
+        "email": admin.email,
+        "role": admin.role,
     }
 
 
@@ -47,6 +73,9 @@ def login_admin(payload: dict, db: Session = Depends(get_db)):
     if not admin:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
+    if not admin.is_active:
+        raise HTTPException(status_code=403, detail="Admin account is inactive")
+
     if not verify_password(payload["password"], admin.password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
@@ -56,7 +85,9 @@ def login_admin(payload: dict, db: Session = Depends(get_db)):
             "id": admin.id,
             "first_name": admin.first_name,
             "last_name": admin.last_name,
-            "email": admin.email
+            "email": admin.email,
+            "role": admin.role,
+            "is_active": admin.is_active,
         },
         "access_token": f"admin-{admin.id}"
     }
