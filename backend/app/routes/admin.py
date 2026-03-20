@@ -14,6 +14,7 @@ from app.models.inventory_transaction import InventoryTransaction
 from app.models.clinic_setting import ClinicSetting
 from app.models.health_record import HealthRecord
 from app.models.admin import Admin
+from app.models.medicine_keeper import MedicineKeeper
 from app.utils.security import hash_password
 from app.utils.age import calculate_age
 
@@ -49,6 +50,19 @@ def serialize_admin(admin: Admin, creator: Admin | None = None):
             f"{creator.first_name} {creator.last_name}" if creator else None
         ),
         "created_at": str(admin.created_at),
+    }
+
+
+def serialize_medicine_keeper(keeper: MedicineKeeper):
+    return {
+        "keeper_id": keeper.id,
+        "keeper_code": keeper.keeper_code,
+        "first_name": keeper.first_name,
+        "last_name": keeper.last_name,
+        "full_name": f"{keeper.first_name} {keeper.last_name}",
+        "username": keeper.username,
+        "is_active": keeper.is_active,
+        "created_at": str(keeper.created_at),
     }
 
 
@@ -745,4 +759,91 @@ def update_admin_status(admin_id: int, payload: dict, db: Session = Depends(get_
     return {
         "message": "Admin status updated successfully",
         "admin": serialize_admin(admin, requester_admin),
+    }
+
+
+@router.get("/medicine-keepers")
+def get_medicine_keepers(db: Session = Depends(get_db)):
+    keepers = (
+        db.query(MedicineKeeper)
+        .order_by(MedicineKeeper.created_at.desc(), MedicineKeeper.id.desc())
+        .all()
+    )
+    return [serialize_medicine_keeper(keeper) for keeper in keepers]
+
+
+@router.post("/medicine-keepers")
+def create_medicine_keeper(payload: dict, db: Session = Depends(get_db)):
+    required_fields = ["keeper_code", "first_name", "last_name", "username", "password"]
+
+    for field in required_fields:
+        if field not in payload or not str(payload[field]).strip():
+            raise HTTPException(status_code=400, detail=f"{field} is required")
+
+    existing_code = (
+        db.query(MedicineKeeper)
+        .filter(MedicineKeeper.keeper_code == payload["keeper_code"])
+        .first()
+    )
+    if existing_code:
+        raise HTTPException(status_code=400, detail="Medicine keeper code already exists")
+
+    existing_username = (
+        db.query(MedicineKeeper)
+        .filter(MedicineKeeper.username == payload["username"])
+        .first()
+    )
+    if existing_username:
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    keeper = MedicineKeeper(
+        keeper_code=payload["keeper_code"],
+        first_name=payload["first_name"],
+        last_name=payload["last_name"],
+        username=payload["username"],
+        password_hash=hash_password(payload["password"]),
+        is_active=payload.get("is_active", True),
+    )
+
+    db.add(keeper)
+    db.commit()
+    db.refresh(keeper)
+
+    return {
+        "message": "Medicine keeper added successfully",
+        "keeper": serialize_medicine_keeper(keeper),
+    }
+
+
+@router.put("/medicine-keepers/{keeper_id}")
+def update_medicine_keeper(keeper_id: int, payload: dict, db: Session = Depends(get_db)):
+    keeper = db.query(MedicineKeeper).filter(MedicineKeeper.id == keeper_id).first()
+    if not keeper:
+        raise HTTPException(status_code=404, detail="Medicine keeper not found")
+
+    username = payload.get("username", keeper.username)
+    if username and str(username).strip():
+        existing_username = (
+            db.query(MedicineKeeper)
+            .filter(MedicineKeeper.username == username, MedicineKeeper.id != keeper_id)
+            .first()
+        )
+        if existing_username:
+            raise HTTPException(status_code=400, detail="Username already exists")
+
+    keeper.first_name = payload.get("first_name", keeper.first_name)
+    keeper.last_name = payload.get("last_name", keeper.last_name)
+    keeper.username = username.strip() if username and str(username).strip() else keeper.username
+    keeper.is_active = payload.get("is_active", keeper.is_active)
+
+    password = payload.get("password")
+    if password and str(password).strip():
+        keeper.password_hash = hash_password(password)
+
+    db.commit()
+    db.refresh(keeper)
+
+    return {
+        "message": "Medicine keeper updated successfully",
+        "keeper": serialize_medicine_keeper(keeper),
     }

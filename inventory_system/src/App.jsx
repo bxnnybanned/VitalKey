@@ -1,10 +1,12 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
-import DoctorLayout from "./layouts/DoctorLayout";
-import Consultation from "./pages/Consultation";
+import InventoryLayout from "./layouts/InventoryLayout";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
-import PatientDetails from "./pages/PatientDetails";
+import MedicineCatalog from "./pages/MedicineCatalog";
+import PatientRequests from "./pages/PatientRequests";
+import Reports from "./pages/Reports";
+import Transactions from "./pages/Transactions";
 
 export default function App() {
   return (
@@ -14,13 +16,15 @@ export default function App() {
       <Route
         element={
           <ProtectedRoute>
-            <DoctorLayout />
+            <InventoryLayout />
           </ProtectedRoute>
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/patient-details" element={<PatientDetails />} />
-        <Route path="/consultation" element={<Consultation />} />
+        <Route path="/medicines" element={<MedicineCatalog />} />
+        <Route path="/patient-requests" element={<PatientRequests />} />
+        <Route path="/reports" element={<Reports />} />
+        <Route path="/transactions" element={<Transactions />} />
       </Route>
     </Routes>
   );

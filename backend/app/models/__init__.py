@@ -5,6 +5,7 @@ from .appointment import Appointment
 from .health_record import HealthRecord
 from .consultation import Consultation
 from .medicine import Medicine
+from .medicine_keeper import MedicineKeeper
 from .prescription import Prescription
 from .prescription_item import PrescriptionItem
 from .inventory_transaction import InventoryTransaction

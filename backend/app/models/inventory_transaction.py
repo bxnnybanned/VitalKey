@@ -10,4 +10,5 @@ class InventoryTransaction(Base):
     medicine_id = Column(Integer, ForeignKey("medicines.id"), nullable=False)
     quantity_released = Column(Integer, nullable=False)
     transaction_type = Column(String(50), nullable=False)
+    processed_by = Column(Integer, ForeignKey("medicine_keepers.id"), nullable=True)
     released_at = Column(DateTime(timezone=True), server_default=func.now())

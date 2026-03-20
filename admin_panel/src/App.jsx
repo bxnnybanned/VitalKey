@@ -9,6 +9,7 @@ import Doctors from "./pages/Doctors";
 import ClinicSettings from "./pages/ClinicSettings";
 import PatientRecords from "./pages/PatientRecords";
 import Medicines from "./pages/Medicines";
+import MedicineKeepers from "./pages/MedicineKeepers";
 import Appointments from "./pages/Appointments";
 import Reports from "./pages/Reports";
 
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/clinic-settings" element={<ClinicSettings />} />
         <Route path="/patient-records" element={<PatientRecords />} />
         <Route path="/medicines" element={<Medicines />} />
+        <Route path="/medicine-keepers" element={<MedicineKeepers />} />
         <Route path="/appointments" element={<Appointments />} />
         <Route path="/reports" element={<Reports />} />
       </Route>
