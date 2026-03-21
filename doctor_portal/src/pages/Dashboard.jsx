@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchTodayPatients } from "../api/doctorApi";
-import { setSelectedPatientCode } from "../utils/selectedPatient";
+import { setSelectedPatientCode, setSelectedQueueItem } from "../utils/selectedPatient";
 
 function formatValue(value) {
   if (value === null || value === undefined || value === "") return "-";
@@ -55,8 +55,9 @@ export default function Dashboard() {
       .includes(searchTerm.trim().toLowerCase()),
   );
 
-  const openPatientDetails = (patientCode) => {
-    setSelectedPatientCode(patientCode);
+  const openPatientDetails = (patient) => {
+    setSelectedPatientCode(patient.patient_code);
+    setSelectedQueueItem(patient);
     navigate("/patient-details");
   };
 
@@ -93,7 +94,7 @@ export default function Dashboard() {
         ) : (
           <div className="space-y-4">
             {filteredPatients.map((patient) => (
-              <div key={patient.appointment_id} className="portal-list-card">
+              <div key={patient.queue_item_id || patient.appointment_id || patient.patient_code} className="portal-list-card">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-slate-500">
@@ -112,6 +113,10 @@ export default function Dashboard() {
                     <span>Time</span>
                     <strong>{formatValue(patient.appointment_time)}</strong>
                   </div>
+                  <div className="portal-mini-card">
+                    <span>Source</span>
+                    <strong>{formatValue(patient.source)}</strong>
+                  </div>
                   <div className="portal-mini-card md:col-span-2">
                     <span>Reason</span>
                     <strong className="text-sm">{formatValue(patient.reason)}</strong>
@@ -121,7 +126,7 @@ export default function Dashboard() {
                 <div className="mt-5">
                   <button
                     type="button"
-                    onClick={() => openPatientDetails(patient.patient_code)}
+                    onClick={() => openPatientDetails(patient)}
                     className="portal-button portal-button-block"
                   >
                     Open Patient Details

@@ -9,7 +9,7 @@ from app.routes.doctor_portal import router as doctor_portal_router
 from app.routes.inventory_portal import router as inventory_portal_router
 from app.routes.prescription import router as prescription_router
 from app.routes.admin import router as admin_router
-from app.models import patient, otp_code, doctor, appointment, health_record, consultation, medicine, medicine_keeper, prescription, prescription_item, inventory_transaction, admin, clinic_setting
+from app.models import patient, otp_code, doctor, appointment, health_record, consultation, medicine, medicine_keeper, prescription, prescription_item, inventory_transaction, inventory_activity_log, admin, clinic_setting, kiosk_session
 from app.routes.admin_auth import router as admin_auth_router
 
 Base.metadata.create_all(bind=engine)
@@ -25,6 +25,8 @@ app.add_middleware(
         "http://127.0.0.1:5174",
         "http://localhost:5175",
         "http://127.0.0.1:5175",
+        "http://localhost:5176",
+        "http://127.0.0.1:5176",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],

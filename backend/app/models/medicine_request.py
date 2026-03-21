@@ -11,7 +11,7 @@ class MedicineRequest(Base):
     medicine_id = Column(Integer, ForeignKey("medicines.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
     reason = Column(String(255), nullable=True)
-    status = Column(String(50), default="Pending")
+    status = Column(String(50), default="pending")
     processed_by = Column(Integer, ForeignKey("medicine_keepers.id"), nullable=True)
     processed_at = Column(DateTime(timezone=True), nullable=True)
     requested_at = Column(DateTime(timezone=True), server_default=func.now())

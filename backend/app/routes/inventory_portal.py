@@ -1,12 +1,14 @@
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+from app.dependencies.auth import get_current_medicine_keeper
 from app.db import get_db
 from app.models.inventory_transaction import InventoryTransaction
+from app.models.inventory_activity_log import InventoryActivityLog
 from app.models.medicine import Medicine
 from app.models.medicine_keeper import MedicineKeeper
 from app.models.medicine_request import MedicineRequest
@@ -14,21 +16,34 @@ from app.models.patient import Patient
 from app.models.prescription import Prescription
 from app.models.prescription_item import PrescriptionItem
 from app.models.doctor import Doctor
+from app.models.consultation import Consultation
+from app.models.health_record import HealthRecord
 from app.schemas.inventory import (
     InventoryLoginSchema,
     UpdateMedicineRequestStatusSchema,
     UpdatePrescriptionStatusSchema,
 )
+from app.schemas.medicine import (
+    InventoryMedicineCreateSchema,
+    InventoryMedicineUpdateSchema,
+)
+from app.utils.auth_tokens import create_access_token
 from app.utils.security import verify_password
+from app.utils.statuses import (
+    MEDICINE_REQUEST_ALLOWED_TRANSITIONS,
+    PRESCRIPTION_ALLOWED_TRANSITIONS,
+    normalize_medicine_request_status,
+    normalize_prescription_status,
+)
 
 router = APIRouter(prefix="/inventory", tags=["Inventory System"])
+protected_router = APIRouter(
+    tags=["Inventory System"],
+    dependencies=[Depends(get_current_medicine_keeper)],
+)
 
 LOW_STOCK_THRESHOLD = 10
 EXPIRING_DAYS = 30
-PRESCRIPTION_STATUSES = {"Prepared", "Ready for Pickup", "Released"}
-MEDICINE_REQUEST_STATUSES = {"Pending", "Ready for Pickup", "Released", "Rejected"}
-
-
 def get_keeper_or_404(keeper_id: int, db: Session) -> MedicineKeeper:
     keeper = (
         db.query(MedicineKeeper)
@@ -40,11 +55,37 @@ def get_keeper_or_404(keeper_id: int, db: Session) -> MedicineKeeper:
     return keeper
 
 
+def log_inventory_activity(
+    db: Session,
+    *,
+    keeper_id: int,
+    action_type: str,
+    reference_type: str,
+    details: str,
+    medicine_id: int | None = None,
+    prescription_id: int | None = None,
+    medicine_request_id: int | None = None,
+):
+    db.add(
+        InventoryActivityLog(
+            keeper_id=keeper_id,
+            medicine_id=medicine_id,
+            prescription_id=prescription_id,
+            medicine_request_id=medicine_request_id,
+            action_type=action_type,
+            reference_type=reference_type,
+            details=details,
+        )
+    )
+
+
 def serialize_prescription(
     prescription: Prescription,
     patient: Patient,
     doctor: Doctor,
     items_data,
+    health_summary=None,
+    consultation_data=None,
 ):
     return {
         "prescription_id": prescription.id,
@@ -57,6 +98,9 @@ def serialize_prescription(
         "patient_id": patient.patient_id,
         "patient_name": f"{patient.first_name} {patient.last_name}",
         "doctor_name": f"{doctor.first_name} {doctor.last_name}",
+        "doctor_specialization": doctor.specialization,
+        "health_summary": health_summary,
+        "consultation": consultation_data,
         "items": [
             {
                 "prescription_item_id": item.id,
@@ -70,6 +114,24 @@ def serialize_prescription(
             }
             for item, medicine in items_data
         ],
+    }
+
+
+def serialize_health_summary(record: HealthRecord | None):
+    if not record:
+        return None
+
+    return {
+        "height_cm": float(record.height_cm) if record.height_cm is not None else None,
+        "weight_kg": float(record.weight_kg) if record.weight_kg is not None else None,
+        "temperature_c": float(record.temperature_c) if record.temperature_c is not None else None,
+        "systolic_bp": record.systolic_bp,
+        "diastolic_bp": record.diastolic_bp,
+        "oxygen_saturation": (
+            float(record.oxygen_saturation) if record.oxygen_saturation is not None else None
+        ),
+        "heart_rate": record.heart_rate,
+        "recorded_at": str(record.recorded_at) if record.recorded_at else None,
     }
 
 
@@ -112,25 +174,25 @@ def login_inventory_keeper(
             "full_name": f"{keeper.first_name} {keeper.last_name}",
             "username": keeper.username,
         },
-        "access_token": f"inventory-{keeper.id}",
+        "access_token": create_access_token(entity_id=keeper.id, role="inventory"),
     }
 
 
-@router.get("/dashboard-summary")
+@protected_router.get("/dashboard-summary")
 def get_inventory_dashboard_summary(db: Session = Depends(get_db)):
     today = date.today()
     start_of_today = datetime.combine(today, datetime.min.time())
     expiring_cutoff = today + timedelta(days=EXPIRING_DAYS)
 
-    total_pending = db.query(Prescription).filter(Prescription.status == "Pending").count()
-    total_prepared = db.query(Prescription).filter(Prescription.status == "Prepared").count()
+    total_pending = db.query(Prescription).filter(Prescription.status == "pending").count()
+    total_prepared = db.query(Prescription).filter(Prescription.status == "prepared").count()
     total_ready = (
-        db.query(Prescription).filter(Prescription.status == "Ready for Pickup").count()
+        db.query(Prescription).filter(Prescription.status == "ready").count()
     )
     total_released_today = (
         db.query(Prescription)
         .filter(
-            Prescription.status == "Released",
+            Prescription.status == "released",
             Prescription.released_at >= start_of_today,
         )
         .count()
@@ -160,40 +222,54 @@ def get_inventory_dashboard_summary(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/medicines")
+@protected_router.get("/medicines")
 def get_inventory_medicines(db: Session = Depends(get_db)):
     medicines = db.query(Medicine).order_by(Medicine.name.asc(), Medicine.id.desc()).all()
     return [serialize_medicine(medicine) for medicine in medicines]
 
 
-@router.post("/medicines")
-def create_inventory_medicine(payload: dict, db: Session = Depends(get_db)):
-    required_fields = ["medicine_code", "name", "stock_quantity"]
-    for field in required_fields:
-        if field not in payload or payload[field] in (None, ""):
-            raise HTTPException(status_code=400, detail=f"{field} is required")
-
+@protected_router.post("/medicines")
+def create_inventory_medicine(
+    payload: InventoryMedicineCreateSchema,
+    db: Session = Depends(get_db),
+    current_keeper: MedicineKeeper = Depends(get_current_medicine_keeper),
+):
     existing = (
         db.query(Medicine)
-        .filter(Medicine.medicine_code == payload["medicine_code"])
+        .filter(Medicine.medicine_code == payload.medicine_code)
         .first()
     )
     if existing:
         raise HTTPException(status_code=400, detail="Medicine code already exists")
 
+    keeper = current_keeper
+
     medicine = Medicine(
-        medicine_code=str(payload["medicine_code"]).strip(),
-        name=str(payload["name"]).strip(),
-        description=payload.get("description"),
-        stock_quantity=int(payload["stock_quantity"]),
-        expiration_date=payload.get("expiration_date"),
-        unit=payload.get("unit"),
-        is_active=payload.get("is_active", True),
+        medicine_code=payload.medicine_code.strip(),
+        name=payload.name.strip(),
+        description=payload.description,
+        stock_quantity=int(payload.stock_quantity),
+        expiration_date=payload.expiration_date,
+        unit=payload.unit,
+        is_active=payload.is_active,
     )
 
     db.add(medicine)
     db.commit()
     db.refresh(medicine)
+
+    log_inventory_activity(
+        db,
+        keeper_id=keeper.id,
+        action_type="Create Medicine",
+        reference_type="Medicine",
+        medicine_id=medicine.id,
+        details=(
+            f"Added medicine {medicine.name} ({medicine.medicine_code}) "
+            f"with stock {medicine.stock_quantity}."
+        ),
+    )
+    db.commit()
 
     return {
         "message": "Medicine added successfully",
@@ -201,27 +277,54 @@ def create_inventory_medicine(payload: dict, db: Session = Depends(get_db)):
     }
 
 
-@router.put("/medicines/{medicine_id}")
-def update_inventory_medicine(medicine_id: int, payload: dict, db: Session = Depends(get_db)):
+@protected_router.put("/medicines/{medicine_id}")
+def update_inventory_medicine(
+    medicine_id: int,
+    payload: InventoryMedicineUpdateSchema,
+    db: Session = Depends(get_db),
+    current_keeper: MedicineKeeper = Depends(get_current_medicine_keeper),
+):
     medicine = db.query(Medicine).filter(Medicine.id == medicine_id).first()
     if not medicine:
         raise HTTPException(status_code=404, detail="Medicine not found")
 
-    if "name" in payload and str(payload["name"]).strip():
-        medicine.name = str(payload["name"]).strip()
-    if "description" in payload:
-        medicine.description = payload.get("description")
-    if "stock_quantity" in payload and payload["stock_quantity"] is not None:
-        medicine.stock_quantity = int(payload["stock_quantity"])
-    if "expiration_date" in payload:
-        medicine.expiration_date = payload.get("expiration_date")
-    if "unit" in payload:
-        medicine.unit = payload.get("unit")
-    if "is_active" in payload:
-        medicine.is_active = bool(payload.get("is_active"))
+    keeper = current_keeper
+    previous_name = medicine.name
+    previous_stock = medicine.stock_quantity
+    previous_status = medicine.is_active
+
+    payload_data = payload.model_dump(exclude_unset=True)
+
+    if "name" in payload_data and str(payload_data["name"]).strip():
+        medicine.name = str(payload_data["name"]).strip()
+    if "description" in payload_data:
+        medicine.description = payload_data.get("description")
+    if "stock_quantity" in payload_data and payload_data["stock_quantity"] is not None:
+        medicine.stock_quantity = int(payload_data["stock_quantity"])
+    if "expiration_date" in payload_data:
+        medicine.expiration_date = payload_data.get("expiration_date")
+    if "unit" in payload_data:
+        medicine.unit = payload_data.get("unit")
+    if "is_active" in payload_data:
+        medicine.is_active = bool(payload_data.get("is_active"))
 
     db.commit()
     db.refresh(medicine)
+
+    log_inventory_activity(
+        db,
+        keeper_id=keeper.id,
+        action_type="Update Medicine",
+        reference_type="Medicine",
+        medicine_id=medicine.id,
+        details=(
+            f"Updated {previous_name} ({medicine.medicine_code}). "
+            f"Stock: {previous_stock} -> {medicine.stock_quantity}. "
+            f"Status: {'Active' if previous_status else 'Inactive'} -> "
+            f"{'Active' if medicine.is_active else 'Inactive'}."
+        ),
+    )
+    db.commit()
 
     return {
         "message": "Medicine updated successfully",
@@ -229,11 +332,18 @@ def update_inventory_medicine(medicine_id: int, payload: dict, db: Session = Dep
     }
 
 
-@router.delete("/medicines/{medicine_id}")
-def delete_inventory_medicine(medicine_id: int, db: Session = Depends(get_db)):
+@protected_router.delete("/medicines/{medicine_id}")
+def delete_inventory_medicine(
+    medicine_id: int,
+    db: Session = Depends(get_db),
+    current_keeper: MedicineKeeper = Depends(get_current_medicine_keeper),
+):
     medicine = db.query(Medicine).filter(Medicine.id == medicine_id).first()
     if not medicine:
         raise HTTPException(status_code=404, detail="Medicine not found")
+    keeper = current_keeper
+    medicine_name = medicine.name
+    medicine_code = medicine.medicine_code
 
     used_in_prescriptions = (
         db.query(PrescriptionItem)
@@ -263,10 +373,19 @@ def delete_inventory_medicine(medicine_id: int, db: Session = Depends(get_db)):
     db.delete(medicine)
     db.commit()
 
+    log_inventory_activity(
+        db,
+        keeper_id=keeper.id,
+        action_type="Delete Medicine",
+        reference_type="Medicine",
+        details=f"Deleted medicine {medicine_name} ({medicine_code}).",
+    )
+    db.commit()
+
     return {"message": "Medicine deleted successfully"}
 
 
-@router.get("/prescriptions")
+@protected_router.get("/prescriptions")
 def get_inventory_prescriptions(db: Session = Depends(get_db)):
     results = (
         db.query(Prescription, Patient, Doctor)
@@ -278,27 +397,59 @@ def get_inventory_prescriptions(db: Session = Depends(get_db)):
 
     response = []
     for prescription, patient, doctor in results:
+        consultation = (
+            db.query(Consultation)
+            .filter(Consultation.id == prescription.consultation_id)
+            .first()
+        )
+        summary_record = None
+        if consultation and consultation.kiosk_session_id:
+            summary_record = (
+                db.query(HealthRecord)
+                .filter(HealthRecord.kiosk_session_id == consultation.kiosk_session_id)
+                .order_by(HealthRecord.recorded_at.desc(), HealthRecord.id.desc())
+                .first()
+            )
         items = (
             db.query(PrescriptionItem, Medicine)
             .join(Medicine, PrescriptionItem.medicine_id == Medicine.id)
             .filter(PrescriptionItem.prescription_id == prescription.id)
             .all()
         )
-        response.append(serialize_prescription(prescription, patient, doctor, items))
+        response.append(
+            serialize_prescription(
+                prescription,
+                patient,
+                doctor,
+                items,
+                health_summary=serialize_health_summary(summary_record),
+                consultation_data={
+                    "consultation_code": consultation.consultation_code if consultation else None,
+                    "consultation_notes": consultation.consultation_notes if consultation else None,
+                    "diagnosis": consultation.diagnosis if consultation else None,
+                },
+            )
+        )
 
     return response
 
 
-@router.put("/prescriptions/{prescription_id}/status")
+@protected_router.put("/prescriptions/{prescription_id}/status")
 def update_inventory_prescription_status(
     prescription_id: int,
     payload: UpdatePrescriptionStatusSchema,
     db: Session = Depends(get_db),
+    current_keeper: MedicineKeeper = Depends(get_current_medicine_keeper),
 ):
-    if payload.status not in PRESCRIPTION_STATUSES:
-        raise HTTPException(status_code=400, detail="Invalid prescription status")
+    try:
+        target_status = normalize_prescription_status(payload.status)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-    keeper = get_keeper_or_404(payload.keeper_id, db)
+    if current_keeper.id != payload.keeper_id:
+        raise HTTPException(status_code=403, detail="You can only submit your own inventory actions")
+
+    keeper = current_keeper
     prescription = (
         db.query(Prescription).filter(Prescription.id == prescription_id).first()
     )
@@ -316,38 +467,43 @@ def update_inventory_prescription_status(
 
     now = datetime.now()
 
-    if payload.status == "Prepared":
-        if prescription.status == "Released":
-            raise HTTPException(status_code=400, detail="Prescription already released")
-        prescription.status = "Prepared"
+    current_status = normalize_prescription_status(prescription.status)
+    if target_status != current_status and target_status not in PRESCRIPTION_ALLOWED_TRANSITIONS.get(current_status, set()):
+        raise HTTPException(status_code=400, detail="Invalid prescription status transition")
+
+    if target_status == "prepared":
+        prescription.status = target_status
         prescription.prepared_by = keeper.id
         prescription.prepared_at = now
+        log_inventory_activity(
+            db,
+            keeper_id=keeper.id,
+            action_type="Prepare Prescription",
+            reference_type="Prescription",
+            prescription_id=prescription.id,
+            details=f"Prepared prescription {prescription.prescription_code}.",
+        )
 
-    elif payload.status == "Ready for Pickup":
-        if prescription.status == "Released":
-            raise HTTPException(status_code=400, detail="Prescription already released")
-        if prescription.status == "Pending":
-            raise HTTPException(
-                status_code=400,
-                detail="Prepare the prescription before marking it ready for pickup",
-            )
-        prescription.status = "Ready for Pickup"
+    elif target_status == "ready":
+        prescription.status = target_status
         if not prescription.prepared_by:
             prescription.prepared_by = keeper.id
         if not prescription.prepared_at:
             prescription.prepared_at = now
         prescription.ready_by = keeper.id
         prescription.ready_at = now
+        log_inventory_activity(
+            db,
+            keeper_id=keeper.id,
+            action_type="Ready for Pickup",
+            reference_type="Prescription",
+            prescription_id=prescription.id,
+            details=(
+                f"Marked prescription {prescription.prescription_code} as ready for pickup."
+            ),
+        )
 
-    elif payload.status == "Released":
-        if prescription.status == "Released":
-            raise HTTPException(status_code=400, detail="Prescription already released")
-        if prescription.status != "Ready for Pickup":
-            raise HTTPException(
-                status_code=400,
-                detail="Mark the prescription as ready for pickup before release",
-            )
-
+    elif target_status == "released":
         for item, medicine in items:
             if medicine.stock_quantity < item.quantity:
                 raise HTTPException(
@@ -370,7 +526,7 @@ def update_inventory_prescription_status(
                 )
             )
 
-        prescription.status = "Released"
+        prescription.status = target_status
         if not prescription.prepared_by:
             prescription.prepared_by = keeper.id
         if not prescription.prepared_at:
@@ -381,6 +537,16 @@ def update_inventory_prescription_status(
             prescription.ready_at = now
         prescription.released_by = keeper.id
         prescription.released_at = now
+        log_inventory_activity(
+            db,
+            keeper_id=keeper.id,
+            action_type="Release Prescription",
+            reference_type="Prescription",
+            prescription_id=prescription.id,
+            details=(
+                f"Released prescription {prescription.prescription_code} to patient."
+            ),
+        )
 
     db.commit()
 
@@ -393,7 +559,7 @@ def update_inventory_prescription_status(
     }
 
 
-@router.get("/transaction-history")
+@protected_router.get("/transaction-history")
 def get_inventory_transactions(db: Session = Depends(get_db)):
     transactions = (
         db.query(InventoryTransaction, Medicine, Prescription, MedicineKeeper)
@@ -420,7 +586,7 @@ def get_inventory_transactions(db: Session = Depends(get_db)):
     ]
 
 
-@router.get("/medicine-requests")
+@protected_router.get("/medicine-requests")
 def get_inventory_medicine_requests(db: Session = Depends(get_db)):
     requests = (
         db.query(MedicineRequest, Patient, Medicine)
@@ -448,33 +614,35 @@ def get_inventory_medicine_requests(db: Session = Depends(get_db)):
     ]
 
 
-@router.put("/medicine-requests/{request_id}/status")
+@protected_router.put("/medicine-requests/{request_id}/status")
 def update_inventory_medicine_request_status(
     request_id: int,
     payload: UpdateMedicineRequestStatusSchema,
     db: Session = Depends(get_db),
+    current_keeper: MedicineKeeper = Depends(get_current_medicine_keeper),
 ):
-    if payload.status not in MEDICINE_REQUEST_STATUSES:
-        raise HTTPException(status_code=400, detail="Invalid medicine request status")
+    try:
+        target_status = normalize_medicine_request_status(payload.status)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-    keeper = get_keeper_or_404(payload.keeper_id, db)
+    if current_keeper.id != payload.keeper_id:
+        raise HTTPException(status_code=403, detail="You can only submit your own inventory actions")
+
+    keeper = current_keeper
     request = db.query(MedicineRequest).filter(MedicineRequest.id == request_id).first()
     if not request:
         raise HTTPException(status_code=404, detail="Medicine request not found")
-
-    if request.status == "Released":
-        raise HTTPException(status_code=400, detail="Medicine request already released")
 
     medicine = db.query(Medicine).filter(Medicine.id == request.medicine_id).first()
     if not medicine:
         raise HTTPException(status_code=404, detail="Medicine not found")
 
-    if payload.status == "Released":
-        if request.status != "Ready for Pickup":
-            raise HTTPException(
-                status_code=400,
-                detail="Mark the medicine request as ready for pickup before release",
-            )
+    current_status = normalize_medicine_request_status(request.status)
+    if target_status != current_status and target_status not in MEDICINE_REQUEST_ALLOWED_TRANSITIONS.get(current_status, set()):
+        raise HTTPException(status_code=400, detail="Invalid medicine request status transition")
+
+    if target_status == "released":
         if medicine.stock_quantity < request.quantity:
             raise HTTPException(
                 status_code=400,
@@ -485,9 +653,21 @@ def update_inventory_medicine_request_status(
             )
         medicine.stock_quantity -= request.quantity
 
-    request.status = payload.status
+    request.status = target_status
     request.processed_by = keeper.id
     request.processed_at = datetime.now()
+    log_inventory_activity(
+        db,
+        keeper_id=keeper.id,
+        action_type=f"Medicine Request: {target_status}",
+        reference_type="Medicine Request",
+        medicine_id=medicine.id,
+        medicine_request_id=request.id,
+        details=(
+            f"Updated patient request {request.request_code} for {medicine.name} "
+            f"to {target_status}."
+        ),
+    )
     db.commit()
 
     return {
@@ -497,7 +677,7 @@ def update_inventory_medicine_request_status(
     }
 
 
-@router.get("/alerts")
+@protected_router.get("/alerts")
 def get_inventory_alerts(db: Session = Depends(get_db)):
     today = date.today()
     expiring_cutoff = today + timedelta(days=EXPIRING_DAYS)
@@ -544,7 +724,7 @@ def get_inventory_alerts(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/reports/summary")
+@protected_router.get("/reports/summary")
 def get_inventory_reports_summary(db: Session = Depends(get_db)):
     total_dispensed = (
         db.query(func.sum(InventoryTransaction.quantity_released)).scalar() or 0
@@ -552,7 +732,7 @@ def get_inventory_reports_summary(db: Session = Depends(get_db)):
     transaction_count = db.query(func.count(InventoryTransaction.id)).scalar() or 0
     released_prescriptions = (
         db.query(func.count(Prescription.id))
-        .filter(Prescription.status == "Released")
+        .filter(Prescription.status == "released")
         .scalar()
         or 0
     )
@@ -579,7 +759,7 @@ def get_inventory_reports_summary(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/reports/medicine-usage")
+@protected_router.get("/reports/medicine-usage")
 def get_inventory_medicine_usage_report(db: Session = Depends(get_db)):
     usage = (
         db.query(
@@ -601,7 +781,7 @@ def get_inventory_medicine_usage_report(db: Session = Depends(get_db)):
     ]
 
 
-@router.get("/reports/daily-dispensing")
+@protected_router.get("/reports/daily-dispensing")
 def get_inventory_daily_dispensing_report(limit: int = 14, db: Session = Depends(get_db)):
     transactions = (
         db.query(InventoryTransaction)
@@ -624,3 +804,6 @@ def get_inventory_daily_dispensing_report(limit: int = 14, db: Session = Depends
     ]
 
     return items[-limit:]
+
+
+router.include_router(protected_router)

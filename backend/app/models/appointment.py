@@ -13,5 +13,5 @@ class Appointment(Base):
     appointment_time = Column(Time, nullable=False)
     queue_number = Column(Integer, nullable=False)
     reason = Column(String(255), nullable=False)
-    status = Column(String(50), default="Pending")
+    status = Column(String(50), default="pending")
     created_at = Column(DateTime(timezone=True), server_default=func.now())

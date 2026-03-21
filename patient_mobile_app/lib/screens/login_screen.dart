@@ -47,6 +47,8 @@ class _LoginScreenState extends State<LoginScreen> {
           patientId: result["patient_id"] ?? "",
         );
 
+        if (!mounted) return;
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -114,15 +116,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   vertical: compact ? 24 : 30,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.94),
+                  color: Colors.white.withValues(alpha: 0.94),
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(
-                    color: primaryBlue.withOpacity(0.08),
+                    color: primaryBlue.withValues(alpha: 0.08),
                     width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: primaryBlue.withOpacity(0.10),
+                      color: primaryBlue.withValues(alpha: 0.10),
                       blurRadius: 28,
                       offset: const Offset(0, 14),
                     ),
@@ -138,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: softBlue,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: primaryBlue.withOpacity(0.12),
+                          color: primaryBlue.withValues(alpha: 0.12),
                           width: 1.4,
                         ),
                       ),
@@ -175,7 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: deepBlue.withOpacity(0.90),
+                          color: deepBlue.withValues(alpha: 0.90),
                         ),
                       ),
                     ),
@@ -218,7 +220,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: deepBlue.withOpacity(0.90),
+                          color: deepBlue.withValues(alpha: 0.90),
                         ),
                       ),
                     ),
@@ -348,7 +350,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: primaryBlue,
                           side: BorderSide(
-                            color: primaryBlue.withOpacity(0.24),
+                              color: primaryBlue.withValues(alpha: 0.24),
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(18),
@@ -378,7 +380,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: softBlue.withOpacity(0.65),
+                        color: softBlue.withValues(alpha: 0.65),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Row(

@@ -113,7 +113,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: _primaryBlue.withOpacity(0.18),
+              color: _primaryBlue.withValues(alpha: 0.18),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -124,7 +124,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.16),
+                color: Colors.white.withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const Icon(
@@ -150,7 +150,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                   Text(
                     "${doctors.length} doctor${doctors.length > 1 ? 's' : ''} listed for appointment booking",
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
                     ),
@@ -159,7 +159,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                   Text(
                     "Consultations are scheduled during clinic hours from Monday to Friday, 8:00 AM to 5:00 PM.",
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.88),
+                      color: Colors.white.withValues(alpha: 0.88),
                       fontSize: 12.5,
                       height: 1.45,
                     ),
@@ -181,7 +181,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),

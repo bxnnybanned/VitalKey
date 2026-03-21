@@ -38,7 +38,7 @@ class _SplashScreenState extends State<SplashScreen> {
     if (connectivityResult.contains(ConnectivityResult.none)) {
       if (!mounted) return;
       setState(() {
-        message = "Internet connection is required before accessing the system.";
+        message = "No network connection detected. Connect to Wi-Fi or mobile data.";
         showRetry = true;
       });
       return;
@@ -49,7 +49,7 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!mounted) return;
       setState(() {
         message =
-            "Internet connection is required before accessing the system.";
+            "Connected to a network, but the VitalKey server is not reachable yet.";
         showRetry = true;
       });
       return;
@@ -108,17 +108,17 @@ class _SplashScreenState extends State<SplashScreen> {
                   vertical: compact ? 28 : 36,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.92),
+                  color: Colors.white.withValues(alpha: 0.92),
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
-                      color: primaryBlue.withOpacity(0.10),
+                      color: primaryBlue.withValues(alpha: 0.10),
                       blurRadius: 30,
                       offset: const Offset(0, 16),
                     ),
                   ],
                   border: Border.all(
-                    color: primaryBlue.withOpacity(0.08),
+                    color: primaryBlue.withValues(alpha: 0.08),
                     width: 1.2,
                   ),
                 ),
@@ -132,7 +132,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         shape: BoxShape.circle,
                         color: softBlue,
                         border: Border.all(
-                          color: primaryBlue.withOpacity(0.12),
+                          color: primaryBlue.withValues(alpha: 0.12),
                           width: 1.5,
                         ),
                       ),
@@ -180,7 +180,8 @@ class _SplashScreenState extends State<SplashScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13.5,
-                            color: message.contains("required")
+                            color: message.contains("No network") ||
+                                    message.contains("not reachable")
                                 ? Colors.redAccent
                                 : deepBlue,
                             fontWeight: FontWeight.w500,
@@ -198,7 +199,7 @@ class _SplashScreenState extends State<SplashScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: primaryBlue,
                             side: BorderSide(
-                              color: primaryBlue.withOpacity(0.24),
+                              color: primaryBlue.withValues(alpha: 0.24),
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
@@ -218,7 +219,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: softBlue.withOpacity(0.75),
+                        color: softBlue.withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: const Row(

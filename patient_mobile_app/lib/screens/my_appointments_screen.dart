@@ -93,15 +93,15 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                         vertical: 30,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.94),
+                        color: Colors.white.withValues(alpha: 0.94),
                         borderRadius: BorderRadius.circular(28),
                         border: Border.all(
-                          color: primaryBlue.withOpacity(0.08),
+                          color: primaryBlue.withValues(alpha: 0.08),
                           width: 1.2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: primaryBlue.withOpacity(0.10),
+                            color: primaryBlue.withValues(alpha: 0.10),
                             blurRadius: 28,
                             offset: const Offset(0, 14),
                           ),
@@ -148,15 +148,15 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(22),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.94),
+                          color: Colors.white.withValues(alpha: 0.94),
                           borderRadius: BorderRadius.circular(26),
                           border: Border.all(
-                            color: primaryBlue.withOpacity(0.08),
+                            color: primaryBlue.withValues(alpha: 0.08),
                             width: 1.2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: primaryBlue.withOpacity(0.10),
+                              color: primaryBlue.withValues(alpha: 0.10),
                               blurRadius: 24,
                               offset: const Offset(0, 12),
                             ),
@@ -211,15 +211,15 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                           return Container(
                             margin: const EdgeInsets.only(bottom: 16),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.96),
+                              color: Colors.white.withValues(alpha: 0.96),
                               borderRadius: BorderRadius.circular(22),
                               border: Border.all(
-                                color: primaryBlue.withOpacity(0.06),
+                                color: primaryBlue.withValues(alpha: 0.06),
                                 width: 1,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: primaryBlue.withOpacity(0.08),
+                                  color: primaryBlue.withValues(alpha: 0.08),
                                   blurRadius: 18,
                                   offset: const Offset(0, 8),
                                 ),
@@ -322,8 +322,8 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                                                     vertical: 5,
                                                   ),
                                               decoration: BoxDecoration(
-                                                color: statusColor.withOpacity(
-                                                  0.12,
+                                                color: statusColor.withValues(
+                                                  alpha: 0.12,
                                                 ),
                                                 borderRadius:
                                                     BorderRadius.circular(999),

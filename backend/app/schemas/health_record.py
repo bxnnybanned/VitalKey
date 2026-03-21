@@ -1,6 +1,15 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 
+
+class KioskBasicPatientSchema(BaseModel):
+    first_name: str
+    last_name: str
+    birthday: str
+    sex: str
+    mobile_number: str
+    address: Optional[str] = None
+
 class SaveHealthRecordSchema(BaseModel):
     patient_code: str
     height_cm: Optional[float] = Field(default=None, ge=0, le=300)

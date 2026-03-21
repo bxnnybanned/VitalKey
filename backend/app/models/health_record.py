@@ -7,6 +7,7 @@ class HealthRecord(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    kiosk_session_id = Column(Integer, ForeignKey("kiosk_sessions.id"), nullable=True)
     height_cm = Column(DECIMAL(5, 2), nullable=True)
     weight_kg = Column(DECIMAL(5, 2), nullable=True)
     temperature_c = Column(DECIMAL(4, 2), nullable=True)

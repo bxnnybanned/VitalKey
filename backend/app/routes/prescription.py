@@ -13,6 +13,7 @@ from app.models.medicine_request import MedicineRequest
 from app.utils.medicine_request_code import generate_medicine_request_code
 from app.schemas.medicine_request import CreateMedicineRequestSchema
 from app.schemas.prescription import CreatePrescriptionSchema, ReleasePrescriptionSchema
+from app.utils.statuses import normalize_medicine_request_status, normalize_prescription_status
 
 router = APIRouter(tags=["Prescription and Inventory"])
 
@@ -40,12 +41,23 @@ def create_prescription(payload: CreatePrescriptionSchema, db: Session = Depends
     if not consultation:
         raise HTTPException(status_code=404, detail="Consultation not found")
 
+    if not payload.items:
+        raise HTTPException(status_code=400, detail="At least one medicine is required")
+
+    validated_items = []
+    for item in payload.items:
+        medicine = db.query(Medicine).filter(Medicine.id == item.medicine_id, Medicine.is_active == True).first()
+        if not medicine:
+            raise HTTPException(status_code=404, detail=f"Medicine with id {item.medicine_id} not found")
+
+        validated_items.append((item, medicine))
+
     new_prescription = Prescription(
         prescription_code=generate_prescription_code(),
         consultation_id=consultation.id,
         patient_id=consultation.patient_id,
         doctor_id=consultation.doctor_id,
-        status="Pending"
+        status=normalize_prescription_status("pending")
     )
 
     db.add(new_prescription)
@@ -54,11 +66,7 @@ def create_prescription(payload: CreatePrescriptionSchema, db: Session = Depends
 
     created_items = []
 
-    for item in payload.items:
-        medicine = db.query(Medicine).filter(Medicine.id == item.medicine_id, Medicine.is_active == True).first()
-        if not medicine:
-            raise HTTPException(status_code=404, detail=f"Medicine with id {item.medicine_id} not found")
-
+    for item, medicine in validated_items:
         new_item = PrescriptionItem(
             prescription_id=new_prescription.id,
             medicine_id=item.medicine_id,
@@ -87,7 +95,7 @@ def create_prescription(payload: CreatePrescriptionSchema, db: Session = Depends
 
 @router.get("/inventory/pending-prescriptions")
 def get_pending_prescriptions(db: Session = Depends(get_db)):
-    prescriptions = db.query(Prescription).filter(Prescription.status == "Pending").all()
+    prescriptions = db.query(Prescription).filter(Prescription.status == "pending").all()
 
     results = []
     for prescription in prescriptions:
@@ -126,7 +134,7 @@ def release_prescription(payload: ReleasePrescriptionSchema, db: Session = Depen
     if not prescription:
         raise HTTPException(status_code=404, detail="Prescription not found")
 
-    if prescription.status == "Released":
+    if prescription.status == "released":
         raise HTTPException(status_code=400, detail="Prescription already released")
 
     items = db.query(PrescriptionItem).filter(PrescriptionItem.prescription_id == prescription.id).all()
@@ -157,7 +165,7 @@ def release_prescription(payload: ReleasePrescriptionSchema, db: Session = Depen
         )
         db.add(tx)
 
-    prescription.status = "Released"
+    prescription.status = normalize_prescription_status("released")
     db.commit()
 
     return {
@@ -240,7 +248,7 @@ def create_medicine_request(payload: CreateMedicineRequestSchema, db: Session = 
         medicine_id=medicine.id,
         quantity=payload.quantity,
         reason=payload.reason,
-        status="Pending"
+        status=normalize_medicine_request_status("pending")
     )
 
     db.add(new_request)

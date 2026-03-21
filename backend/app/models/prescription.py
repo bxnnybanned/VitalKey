@@ -10,7 +10,7 @@ class Prescription(Base):
     consultation_id = Column(Integer, ForeignKey("consultations.id"), nullable=False)
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
     doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
-    status = Column(String(50), default="Pending")
+    status = Column(String(50), default="pending")
     prepared_by = Column(Integer, ForeignKey("medicine_keepers.id"), nullable=True)
     prepared_at = Column(DateTime(timezone=True), nullable=True)
     ready_by = Column(Integer, ForeignKey("medicine_keepers.id"), nullable=True)

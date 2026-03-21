@@ -10,6 +10,7 @@ from app.models.appointment import Appointment
 from app.models.clinic_setting import ClinicSetting
 from app.schemas.appointment import BookAppointmentSchema
 from app.utils.appointment_code import generate_appointment_code
+from app.utils.statuses import normalize_appointment_status
 
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
 
@@ -78,7 +79,8 @@ def get_available_slots(doctor_id: int, db: Session = Depends(get_db)):
             "doctor_id": doctor.id,
             "doctor_name": f"{doctor.first_name} {doctor.last_name}",
             "appointment_date": str(today),
-            "available_slots": []
+            "available_slots": [],
+            "message": "Clinic is closed today.",
         }
 
     clinic_open = clinic_setting.open_time
@@ -93,7 +95,8 @@ def get_available_slots(doctor_id: int, db: Session = Depends(get_db)):
             "doctor_id": doctor.id,
             "doctor_name": f"{doctor.first_name} {doctor.last_name}",
             "appointment_date": str(today),
-            "available_slots": []
+            "available_slots": [],
+            "message": "Clinic booking hours are already closed for today.",
         }
 
     all_slots = generate_time_slots(clinic_open, clinic_close, slot_interval)
@@ -102,7 +105,8 @@ def get_available_slots(doctor_id: int, db: Session = Depends(get_db)):
 
     booked_slots = db.query(Appointment.appointment_time).filter(
         Appointment.doctor_id == doctor_id,
-        Appointment.appointment_date == today
+        Appointment.appointment_date == today,
+        Appointment.status != "cancelled",
     ).all()
 
     booked_times = {row[0] for row in booked_slots}
@@ -117,7 +121,10 @@ def get_available_slots(doctor_id: int, db: Session = Depends(get_db)):
         "doctor_id": doctor.id,
         "doctor_name": f"{doctor.first_name} {doctor.last_name}",
         "appointment_date": str(today),
-        "available_slots": available_slots
+        "available_slots": available_slots,
+        "message": "No more available slots for today."
+        if len(available_slots) == 0
+        else None,
     }
 
 
@@ -168,7 +175,8 @@ def book_appointment(payload: BookAppointmentSchema, db: Session = Depends(get_d
     existing_same_slot = db.query(Appointment).filter(
         Appointment.doctor_id == payload.doctor_id,
         Appointment.appointment_date == today,
-        Appointment.appointment_time == payload.appointment_time
+        Appointment.appointment_time == payload.appointment_time,
+        Appointment.status != "cancelled",
     ).first()
 
     if existing_same_slot:
@@ -189,7 +197,7 @@ def book_appointment(payload: BookAppointmentSchema, db: Session = Depends(get_d
         appointment_time=payload.appointment_time,
         queue_number=next_queue,
         reason=payload.reason,
-        status="Pending"
+        status=normalize_appointment_status("pending")
     )
 
     db.add(new_appointment)

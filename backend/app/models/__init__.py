@@ -9,5 +9,7 @@ from .medicine_keeper import MedicineKeeper
 from .prescription import Prescription
 from .prescription_item import PrescriptionItem
 from .inventory_transaction import InventoryTransaction
+from .inventory_activity_log import InventoryActivityLog
 from .medicine_request import MedicineRequest
 from .clinic_setting import ClinicSetting
+from .kiosk_session import KioskSession

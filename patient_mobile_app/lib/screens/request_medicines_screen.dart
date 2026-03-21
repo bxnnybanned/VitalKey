@@ -207,7 +207,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
             height: 220,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _primaryBlue.withOpacity(0.10),
+              color: _primaryBlue.withValues(alpha: 0.10),
             ),
           ),
         ),
@@ -219,7 +219,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
             height: 180,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _deepBlue.withOpacity(0.07),
+              color: _deepBlue.withValues(alpha: 0.07),
             ),
           ),
         ),
@@ -231,7 +231,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
             height: 170,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _primaryBlue.withOpacity(0.06),
+              color: _primaryBlue.withValues(alpha: 0.06),
             ),
           ),
         ),
@@ -243,7 +243,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
             height: 220,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [_primaryBlue.withOpacity(0.08), Colors.transparent],
+                colors: [_primaryBlue.withValues(alpha: 0.08), Colors.transparent],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -294,7 +294,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                           borderRadius: BorderRadius.circular(28),
                           boxShadow: [
                             BoxShadow(
-                              color: _primaryBlue.withOpacity(0.18),
+                              color: _primaryBlue.withValues(alpha: 0.18),
                               blurRadius: 22,
                               offset: const Offset(0, 10),
                             ),
@@ -305,7 +305,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                             Container(
                               padding: const EdgeInsets.all(18),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.16),
+                                color: Colors.white.withValues(alpha: 0.16),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: const Icon(
@@ -328,7 +328,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                               'Request medicines from the health center and monitor the status of each request in one place.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
+                                color: Colors.white.withValues(alpha: 0.9),
                                 fontSize: 13.5,
                                 height: 1.5,
                               ),
@@ -341,14 +341,14 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.78),
+                          color: Colors.white.withValues(alpha: 0.78),
                           borderRadius: BorderRadius.circular(26),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.55),
+                            color: Colors.white.withValues(alpha: 0.55),
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
+                              color: Colors.black.withValues(alpha: 0.04),
                               blurRadius: 16,
                               offset: const Offset(0, 6),
                             ),
@@ -375,7 +375,7 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                             ),
                             const SizedBox(height: 18),
                             DropdownButtonFormField<int>(
-                              value: selectedMedicineId,
+                              initialValue: selectedMedicineId,
                               isExpanded: true,
                               menuMaxHeight: 300,
                               items: medicines.map<DropdownMenuItem<int>>((
@@ -537,11 +537,11 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(28),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.90),
+                            color: Colors.white.withValues(alpha: 0.90),
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
+                                color: Colors.black.withValues(alpha: 0.04),
                                 blurRadius: 16,
                                 offset: const Offset(0, 6),
                               ),
@@ -585,11 +585,11 @@ class _RequestMedicinesScreenState extends State<RequestMedicinesScreen> {
                             margin: const EdgeInsets.only(bottom: 14),
                             padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.90),
+                              color: Colors.white.withValues(alpha: 0.90),
                               borderRadius: BorderRadius.circular(22),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
+                                  color: Colors.black.withValues(alpha: 0.04),
                                   blurRadius: 16,
                                   offset: const Offset(0, 6),
                                 ),

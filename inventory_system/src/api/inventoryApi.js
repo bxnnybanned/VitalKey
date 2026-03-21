@@ -61,8 +61,10 @@ export async function updateInventoryMedicine(medicineId, payload) {
   return response.data;
 }
 
-export async function deleteInventoryMedicine(medicineId) {
-  const response = await api.delete(`/inventory/medicines/${medicineId}`);
+export async function deleteInventoryMedicine(medicineId, keeperId) {
+  const response = await api.delete(`/inventory/medicines/${medicineId}`, {
+    params: { keeper_id: keeperId },
+  });
   return response.data;
 }
 

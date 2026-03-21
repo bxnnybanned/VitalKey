@@ -216,7 +216,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
-                      color: _primaryBlue.withOpacity(0.18),
+                      color: _primaryBlue.withValues(alpha: 0.18),
                       blurRadius: 22,
                       offset: const Offset(0, 10),
                     ),
@@ -227,7 +227,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     Container(
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.16),
+                        color: Colors.white.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Icon(
@@ -252,7 +252,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           : "Enter your registered email address and we'll send you a one-time password.",
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: compact ? 13 : 13.5,
                         height: 1.5,
                       ),
@@ -265,7 +265,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 width: double.infinity,
                 padding: EdgeInsets.all(compact ? 16 : 20),
                 decoration: BoxDecoration(
-                  color: _softBlue.withOpacity(0.45),
+                  color: _softBlue.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(26),
                 ),
                 child: Column(

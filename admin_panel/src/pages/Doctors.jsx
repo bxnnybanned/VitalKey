@@ -304,18 +304,18 @@ export default function Doctors() {
                       </span>
                     </td>
                     <td className="p-3">
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => handleEdit(doctor)}
-                          className="rounded-lg bg-yellow-400 px-4 py-2 text-white hover:bg-yellow-500"
+                          className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-700 transition hover:border-cyan-300 hover:bg-cyan-100"
                         >
                           Edit
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDelete(doctor.doctor_id)}
-                          className="rounded-lg bg-red-500 px-4 py-2 text-white hover:bg-red-600"
+                          className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
                         >
                           Delete
                         </button>

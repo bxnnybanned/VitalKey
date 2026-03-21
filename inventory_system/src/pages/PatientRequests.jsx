@@ -4,17 +4,33 @@ import {
   updateInventoryRequestStatus,
 } from "../api/inventoryApi";
 
+function normalizeRequestStatus(status) {
+  const value = String(status || "").trim().toLowerCase();
+  if (value === "ready for pickup") return "ready";
+  return value;
+}
+
+function getRequestStatusLabel(status) {
+  const normalized = normalizeRequestStatus(status);
+  if (normalized === "pending") return "Pending";
+  if (normalized === "ready") return "Ready for Pickup";
+  if (normalized === "released") return "Released";
+  if (normalized === "rejected") return "Rejected";
+  return status || "-";
+}
+
 function StatusBadge({ status }) {
+  const normalized = normalizeRequestStatus(status);
   const statusClass =
-    status === "Released"
+    normalized === "released"
       ? "inventory-chip-done"
-      : status === "Ready for Pickup"
+      : normalized === "ready"
         ? "inventory-chip-primary"
-        : status === "Rejected"
+        : normalized === "rejected"
           ? "inventory-status-bad"
           : "inventory-chip-neutral";
 
-  return <span className={statusClass}>{status}</span>;
+  return <span className={statusClass}>{getRequestStatusLabel(status)}</span>;
 }
 
 export default function PatientRequests() {
@@ -51,11 +67,12 @@ export default function PatientRequests() {
       setBusyRequestId(requestId);
       setError("");
       setSuccess("");
+      const normalizedStatus = normalizeRequestStatus(status);
       await updateInventoryRequestStatus(requestId, {
-        status,
+        status: normalizedStatus,
         keeper_id: keeper.keeper_id,
       });
-      setSuccess(`Medicine request marked as ${status}.`);
+      setSuccess(`Medicine request marked as ${getRequestStatusLabel(normalizedStatus)}.`);
       await loadRequests();
     } catch (err) {
       setError(
@@ -66,8 +83,12 @@ export default function PatientRequests() {
     }
   };
 
-  const activeRequests = requests.filter((request) => request.status !== "Released");
-  const releasedRequests = requests.filter((request) => request.status === "Released");
+  const activeRequests = requests.filter(
+    (request) => normalizeRequestStatus(request.status) !== "released",
+  );
+  const releasedRequests = requests.filter(
+    (request) => normalizeRequestStatus(request.status) === "released",
+  );
 
   return (
     <section className="inventory-page">
@@ -133,12 +154,12 @@ export default function PatientRequests() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-3">
-                      {request.status === "Pending" && (
+                      {normalizeRequestStatus(request.status) === "pending" && (
                         <>
                           <button
                             type="button"
                             onClick={() =>
-                              handleRequestAction(request.request_id, "Ready for Pickup")
+                              handleRequestAction(request.request_id, "ready")
                             }
                             disabled={busyRequestId === request.request_id}
                             className="inventory-button"
@@ -148,7 +169,7 @@ export default function PatientRequests() {
                           <button
                             type="button"
                             onClick={() =>
-                              handleRequestAction(request.request_id, "Rejected")
+                              handleRequestAction(request.request_id, "rejected")
                             }
                             disabled={busyRequestId === request.request_id}
                             className="inventory-button-secondary"
@@ -158,11 +179,11 @@ export default function PatientRequests() {
                         </>
                       )}
 
-                      {request.status === "Ready for Pickup" && (
+                      {normalizeRequestStatus(request.status) === "ready" && (
                         <button
                           type="button"
                           onClick={() =>
-                            handleRequestAction(request.request_id, "Released")
+                            handleRequestAction(request.request_id, "released")
                           }
                           disabled={busyRequestId === request.request_id}
                           className="inventory-button"

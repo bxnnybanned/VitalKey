@@ -130,15 +130,15 @@ class _OtpScreenState extends State<OtpScreen> {
                   vertical: compact ? 24 : 30,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.94),
+                  color: Colors.white.withValues(alpha: 0.94),
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(
-                    color: _primaryBlue.withOpacity(0.08),
+                    color: _primaryBlue.withValues(alpha: 0.08),
                     width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: _primaryBlue.withOpacity(0.10),
+                      color: _primaryBlue.withValues(alpha: 0.10),
                       blurRadius: 28,
                       offset: const Offset(0, 14),
                     ),
@@ -153,7 +153,7 @@ class _OtpScreenState extends State<OtpScreen> {
                         color: _softBlue,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: _primaryBlue.withOpacity(0.12),
+                          color: _primaryBlue.withValues(alpha: 0.12),
                           width: 1.4,
                         ),
                       ),
@@ -191,7 +191,7 @@ class _OtpScreenState extends State<OtpScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: _deepBlue.withOpacity(0.90),
+                          color: _deepBlue.withValues(alpha: 0.90),
                         ),
                       ),
                     ),
@@ -285,7 +285,7 @@ class _OtpScreenState extends State<OtpScreen> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: _softBlue.withOpacity(0.65),
+                        color: _softBlue.withValues(alpha: 0.65),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Row(

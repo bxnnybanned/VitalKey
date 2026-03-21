@@ -13,8 +13,26 @@ const summaryCards = [
   { key: "released_today", label: "Released Today" },
 ];
 
+function normalizePrescriptionStatus(status) {
+  const value = String(status || "").trim().toLowerCase();
+  if (value === "ready for pickup") return "ready";
+  return value;
+}
+
+function getPrescriptionStatusLabel(status) {
+  const normalized = normalizePrescriptionStatus(status);
+  if (normalized === "pending") return "Pending";
+  if (normalized === "prepared") return "Prepared";
+  if (normalized === "ready") return "Ready for Pickup";
+  if (normalized === "released") return "Released";
+  return status || "-";
+}
+
 function buildPrescriptionPrintMarkup(prescription, keeperName) {
   const releasedAt = new Date().toLocaleString();
+  const healthSummary = prescription.health_summary;
+  const consultation = prescription.consultation;
+  const doctorSpecialization = prescription.doctor_specialization || "General Physician";
   const itemsMarkup = prescription.items
     .map(
       (item) => `
@@ -27,6 +45,19 @@ function buildPrescriptionPrintMarkup(prescription, keeperName) {
       `,
     )
     .join("");
+  const vitalsMarkup = healthSummary
+    ? `
+      <div class="vitals-grid">
+        <div class="meta-card"><strong>Temperature</strong>${healthSummary.temperature_c ?? "-"} C</div>
+        <div class="meta-card"><strong>Blood Pressure</strong>${healthSummary.systolic_bp ?? "-"}/${healthSummary.diastolic_bp ?? "-"} mmHg</div>
+        <div class="meta-card"><strong>Height</strong>${healthSummary.height_cm ?? "-"} cm</div>
+        <div class="meta-card"><strong>Weight</strong>${healthSummary.weight_kg ?? "-"} kg</div>
+        <div class="meta-card"><strong>SpO2</strong>${healthSummary.oxygen_saturation ?? "-"} %</div>
+        <div class="meta-card"><strong>Heart Rate</strong>${healthSummary.heart_rate ?? "-"} bpm</div>
+      </div>
+      <p class="muted" style="margin-top:10px;">Recorded at: ${healthSummary.recorded_at || "-"}</p>
+    `
+    : `<div class="note-box"><strong>Health Summary</strong>No kiosk health summary linked to this prescription.</div>`;
 
   return `
     <!DOCTYPE html>
@@ -59,6 +90,13 @@ function buildPrescriptionPrintMarkup(prescription, keeperName) {
             padding-bottom: 16px;
           }
           .brand h1 {
+            font-size: 16px;
+            margin: 0 0 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: #1d4ed8;
+          }
+          .brand h2 {
             font-size: 28px;
             margin: 0 0 4px;
             letter-spacing: 0.01em;
@@ -104,6 +142,11 @@ function buildPrescriptionPrintMarkup(prescription, keeperName) {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 14px;
             margin: 0;
+          }
+          .vitals-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
           }
           .meta-card {
             border: 1px solid #dbeafe;
@@ -161,6 +204,11 @@ function buildPrescriptionPrintMarkup(prescription, keeperName) {
             letter-spacing: 0.1em;
             color: #475569;
           }
+          .two-column {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+          }
           @media print {
             body {
               margin: 0;
@@ -178,9 +226,9 @@ function buildPrescriptionPrintMarkup(prescription, keeperName) {
         <div class="sheet">
           <div class="topbar">
             <div class="brand">
-              <h1>Prescription Release Slip</h1>
+              <h1>VitalKey Inventory System</h1>
+              <h2>Prescription Release Slip</h2>
               <p class="muted">Barangay Abangan Norte Health Center</p>
-              <p class="muted">VitalKey Inventory System</p>
             </div>
             <div class="code-box">
               <strong>Prescription Code</strong>
@@ -209,6 +257,21 @@ function buildPrescriptionPrintMarkup(prescription, keeperName) {
             </div>
           </div>
 
+          <div class="section-title">Health Summary</div>
+          ${vitalsMarkup}
+
+          <div class="section-title">Consultation</div>
+          <div class="two-column">
+            <div class="note-box">
+              <strong>Diagnosis</strong>
+              ${consultation?.diagnosis || "-"}
+            </div>
+            <div class="note-box">
+              <strong>Consultation Notes</strong>
+              ${consultation?.consultation_notes || "-"}
+            </div>
+          </div>
+
           <div class="section-title">Medicines</div>
           <table>
             <thead>
@@ -230,16 +293,19 @@ function buildPrescriptionPrintMarkup(prescription, keeperName) {
           </div>
 
           <div class="footer">
-            <div class="sign">Medicine Keeper Signature</div>
-            <div class="sign">Patient Signature</div>
+            <div class="sign">
+              Dr. ${prescription.doctor_name || "-"}<br />
+              ${doctorSpecialization}
+            </div>
           </div>
+
         </div>
       </body>
     </html>
   `;
 }
 
-function printPrescriptionSlip(prescription, keeperName) {
+function openPrintPreview(prescription, keeperName) {
   const printWindow = window.open("", "_blank", "width=900,height=700");
   if (!printWindow) return false;
 
@@ -249,6 +315,129 @@ function printPrescriptionSlip(prescription, keeperName) {
   printWindow.focus();
   printWindow.print();
   return true;
+}
+
+function ReleasePreviewModal({ prescription, keeperName, onClose }) {
+  if (!prescription) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
+      <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">
+              VitalKey Inventory System
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">
+              Prescription Release Preview
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Review the summary before printing.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="inventory-list-card">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Patient
+            </p>
+            <p className="mt-2 text-lg font-bold text-slate-900">{prescription.patient_name}</p>
+            <p className="mt-1 text-sm text-slate-500">{prescription.patient_id}</p>
+          </div>
+          <div className="inventory-list-card">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Doctor
+            </p>
+            <p className="mt-2 text-lg font-bold text-slate-900">{prescription.doctor_name}</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {prescription.doctor_specialization || "General Physician"}
+            </p>
+          </div>
+          <div className="inventory-list-card">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Released By
+            </p>
+            <p className="mt-2 text-lg font-bold text-slate-900">{keeperName}</p>
+          </div>
+          <div className="inventory-list-card">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Prescription Code
+            </p>
+            <p className="mt-2 text-lg font-bold text-slate-900">
+              {prescription.prescription_code}
+            </p>
+          </div>
+        </div>
+
+        {prescription.health_summary && (
+          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="inventory-list-card"><strong>Temperature</strong><p className="mt-2 text-lg font-bold">{prescription.health_summary.temperature_c ?? "-"} C</p></div>
+            <div className="inventory-list-card"><strong>Blood Pressure</strong><p className="mt-2 text-lg font-bold">{prescription.health_summary.systolic_bp ?? "-"}/{prescription.health_summary.diastolic_bp ?? "-"} mmHg</p></div>
+            <div className="inventory-list-card"><strong>Height</strong><p className="mt-2 text-lg font-bold">{prescription.health_summary.height_cm ?? "-"} cm</p></div>
+            <div className="inventory-list-card"><strong>Weight</strong><p className="mt-2 text-lg font-bold">{prescription.health_summary.weight_kg ?? "-"} kg</p></div>
+            <div className="inventory-list-card"><strong>SpO2</strong><p className="mt-2 text-lg font-bold">{prescription.health_summary.oxygen_saturation ?? "-"} %</p></div>
+            <div className="inventory-list-card"><strong>Heart Rate</strong><p className="mt-2 text-lg font-bold">{prescription.health_summary.heart_rate ?? "-"} bpm</p></div>
+          </div>
+        )}
+
+        <div className="mt-6 grid gap-4 xl:grid-cols-2">
+          <div className="inventory-list-card">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Diagnosis
+            </p>
+            <p className="mt-2 text-slate-700">{prescription.consultation?.diagnosis || "-"}</p>
+          </div>
+          <div className="inventory-list-card">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Consultation Notes
+            </p>
+            <p className="mt-2 text-slate-700">{prescription.consultation?.consultation_notes || "-"}</p>
+          </div>
+        </div>
+
+        <div className="mt-6 overflow-x-auto">
+          <table className="inventory-table min-w-[620px]">
+            <thead>
+              <tr>
+                <th>Medicine</th>
+                <th>Dosage</th>
+                <th>Qty</th>
+                <th>Unit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {prescription.items.map((item) => (
+                <tr key={item.prescription_item_id}>
+                  <td>{item.medicine_name}</td>
+                  <td>{item.dosage_instructions}</td>
+                  <td>{item.quantity}</td>
+                  <td>{item.unit || "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inventory-button-secondary"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={() => openPrintPreview(prescription, keeperName)}
+            className="inventory-button"
+          >
+            Print
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function StatCard({ label, value }) {
@@ -261,16 +450,17 @@ function StatCard({ label, value }) {
 }
 
 function StatusBadge({ status }) {
+  const normalized = normalizePrescriptionStatus(status);
   const statusClass =
-    status === "Released"
+    normalized === "released"
       ? "inventory-chip-done"
-      : status === "Ready for Pickup"
+      : normalized === "ready"
         ? "inventory-chip-primary"
-        : status === "Prepared"
+        : normalized === "prepared"
           ? "inventory-chip-warning"
           : "inventory-chip-neutral";
 
-  return <span className={statusClass}>{status}</span>;
+  return <span className={statusClass}>{getPrescriptionStatusLabel(status)}</span>;
 }
 
 export default function Dashboard() {
@@ -286,6 +476,7 @@ export default function Dashboard() {
   const [busyPrescriptionId, setBusyPrescriptionId] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [previewPrescription, setPreviewPrescription] = useState(null);
 
   const loadData = async () => {
     try {
@@ -320,16 +511,17 @@ export default function Dashboard() {
       const selectedPrescription = prescriptions.find(
         (item) => item.prescription_id === prescriptionId,
       );
+      const normalizedStatus = normalizePrescriptionStatus(status);
       await updatePrescriptionStatus(prescriptionId, {
-        status,
+        status: normalizedStatus,
         keeper_id: keeper.keeper_id,
       });
-      setSuccess(`Prescription marked as ${status}.`);
-      if (status === "Released" && selectedPrescription) {
-        printPrescriptionSlip(
-          selectedPrescription,
-          keeper?.full_name || "Medicine Keeper",
-        );
+      setSuccess(`Prescription marked as ${getPrescriptionStatusLabel(normalizedStatus)}.`);
+      if (normalizedStatus === "released" && selectedPrescription) {
+        setPreviewPrescription({
+          ...selectedPrescription,
+          status: normalizedStatus,
+        });
       }
       await loadData();
     } catch (err) {
@@ -342,11 +534,16 @@ export default function Dashboard() {
   };
 
   const actionablePrescriptions = prescriptions.filter(
-    (item) => item.status !== "Released",
+    (item) => normalizePrescriptionStatus(item.status) !== "released",
   );
 
   return (
     <section className="inventory-page">
+      <ReleasePreviewModal
+        prescription={previewPrescription}
+        keeperName={keeper?.full_name || "Medicine Keeper"}
+        onClose={() => setPreviewPrescription(null)}
+      />
       <div className="inventory-header">
         <h1 className="inventory-title">Dashboard</h1>
         <p className="inventory-subtitle">
@@ -443,14 +640,62 @@ export default function Dashboard() {
                           </table>
                         </div>
 
+                        {prescription.health_summary && (
+                          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            <div className="inventory-list-card">
+                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                Temperature
+                              </p>
+                              <p className="mt-2 text-lg font-bold text-slate-900">
+                                {prescription.health_summary.temperature_c ?? "-"} C
+                              </p>
+                            </div>
+                            <div className="inventory-list-card">
+                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                Blood Pressure
+                              </p>
+                              <p className="mt-2 text-lg font-bold text-slate-900">
+                                {prescription.health_summary.systolic_bp ?? "-"}
+                                /
+                                {prescription.health_summary.diastolic_bp ?? "-"} mmHg
+                              </p>
+                            </div>
+                            <div className="inventory-list-card">
+                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                Height / Weight
+                              </p>
+                              <p className="mt-2 text-lg font-bold text-slate-900">
+                                {prescription.health_summary.height_cm ?? "-"} cm /{" "}
+                                {prescription.health_summary.weight_kg ?? "-"} kg
+                              </p>
+                            </div>
+                            <div className="inventory-list-card">
+                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                SpO2
+                              </p>
+                              <p className="mt-2 text-lg font-bold text-slate-900">
+                                {prescription.health_summary.oxygen_saturation ?? "-"} %
+                              </p>
+                            </div>
+                            <div className="inventory-list-card">
+                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                Heart Rate
+                              </p>
+                              <p className="mt-2 text-lg font-bold text-slate-900">
+                                {prescription.health_summary.heart_rate ?? "-"} bpm
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="mt-4 flex flex-wrap gap-3">
-                          {prescription.status === "Pending" && (
+                          {normalizePrescriptionStatus(prescription.status) === "pending" && (
                             <button
                               type="button"
                               onClick={() =>
                                 handlePrescriptionAction(
                                   prescription.prescription_id,
-                                  "Prepared",
+                                  "prepared",
                                 )
                               }
                               disabled={busyPrescriptionId === prescription.prescription_id}
@@ -460,13 +705,13 @@ export default function Dashboard() {
                             </button>
                           )}
 
-                          {prescription.status === "Prepared" && (
+                          {normalizePrescriptionStatus(prescription.status) === "prepared" && (
                             <button
                               type="button"
                               onClick={() =>
                                 handlePrescriptionAction(
                                   prescription.prescription_id,
-                                  "Ready for Pickup",
+                                  "ready",
                                 )
                               }
                               disabled={busyPrescriptionId === prescription.prescription_id}
@@ -476,13 +721,13 @@ export default function Dashboard() {
                             </button>
                           )}
 
-                          {prescription.status === "Ready for Pickup" && (
+                          {normalizePrescriptionStatus(prescription.status) === "ready" && (
                             <button
                               type="button"
                               onClick={() =>
                                 handlePrescriptionAction(
                                   prescription.prescription_id,
-                                  "Released",
+                                  "released",
                                 )
                               }
                               disabled={busyPrescriptionId === prescription.prescription_id}

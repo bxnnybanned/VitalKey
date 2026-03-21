@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchPatientDetails, fetchTodayPatients } from "../api/doctorApi";
-import { getSelectedPatientCode } from "../utils/selectedPatient";
+import { getSelectedPatientCode, getSelectedQueueItem } from "../utils/selectedPatient";
 
 function formatValue(value, suffix = "") {
   if (value === null || value === undefined || value === "") return "-";
@@ -20,6 +20,7 @@ export default function PatientDetails() {
     [],
   );
   const selectedPatientCode = getSelectedPatientCode();
+  const selectedQueueItem = getSelectedQueueItem();
 
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
@@ -42,7 +43,11 @@ export default function PatientDetails() {
         ]);
         setSelectedPatient(details);
         setSelectedAppointment(
-          patients.find((item) => item.patient_code === selectedPatientCode) || null,
+          selectedQueueItem
+            ? patients.find(
+                (item) => item.queue_item_id === selectedQueueItem.queue_item_id,
+              ) || selectedQueueItem
+            : patients.find((item) => item.patient_code === selectedPatientCode) || null,
         );
       } catch (err) {
         setError(err.response?.data?.detail || "Failed to load patient details.");
@@ -105,6 +110,10 @@ export default function PatientDetails() {
                 <p>
                   <span className="font-semibold text-slate-900">Status:</span>{" "}
                   {formatValue(selectedAppointment?.status)}
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-900">Source:</span>{" "}
+                  {formatValue(selectedAppointment?.source)}
                 </p>
               </div>
             </div>

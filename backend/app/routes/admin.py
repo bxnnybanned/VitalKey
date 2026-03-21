@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+from app.dependencies.auth import get_current_admin
 from app.db import get_db
 from app.models.doctor import Doctor
 from app.models.medicine import Medicine
@@ -11,29 +12,46 @@ from app.models.appointment import Appointment
 from app.models.patient import Patient
 from app.models.prescription import Prescription
 from app.models.inventory_transaction import InventoryTransaction
+from app.models.inventory_activity_log import InventoryActivityLog
 from app.models.clinic_setting import ClinicSetting
 from app.models.health_record import HealthRecord
+from app.models.kiosk_session import KioskSession
 from app.models.admin import Admin
 from app.models.medicine_keeper import MedicineKeeper
+from app.models.medicine_request import MedicineRequest
+from app.schemas.admin import (
+    AdminCreateSchema,
+    AdminStatusUpdateSchema,
+    AppointmentStatusUpdateSchema,
+    ClinicSettingUpdateSchema,
+    DoctorCreateSchema,
+    DoctorUpdateSchema,
+    MedicineCreateSchema,
+    MedicineKeeperCreateSchema,
+    MedicineKeeperUpdateSchema,
+    MedicineUpdateSchema,
+)
 from app.utils.security import hash_password
 from app.utils.age import calculate_age
+from app.utils.statuses import (
+    APPOINTMENT_ALLOWED_TRANSITIONS,
+    normalize_appointment_status,
+)
 
-router = APIRouter(prefix="/admin", tags=["Admin Panel"])
+router = APIRouter(
+    prefix="/admin",
+    tags=["Admin Panel"],
+    dependencies=[Depends(get_current_admin)],
+)
 
 
-def get_super_admin(requester_admin_id: int, db: Session):
-    requester_admin = (
-        db.query(Admin)
-        .filter(Admin.id == requester_admin_id, Admin.is_active == True)
-        .first()
-    )
-
-    if not requester_admin or requester_admin.role != "super_admin":
+def get_super_admin(current_admin: Admin):
+    if not current_admin or current_admin.role != "super_admin":
         raise HTTPException(
             status_code=403, detail="Only a super admin can perform this action"
         )
 
-    return requester_admin
+    return current_admin
 
 
 def serialize_admin(admin: Admin, creator: Admin | None = None):
@@ -66,6 +84,27 @@ def serialize_medicine_keeper(keeper: MedicineKeeper):
     }
 
 
+def serialize_inventory_activity(log, keeper=None, medicine=None, prescription=None, request=None):
+    return {
+        "activity_id": log.id,
+        "action_type": log.action_type,
+        "reference_type": log.reference_type,
+        "details": log.details,
+        "created_at": str(log.created_at),
+        "keeper_id": log.keeper_id,
+        "keeper_name": (
+            f"{keeper.first_name} {keeper.last_name}" if keeper else "-"
+        ),
+        "medicine_id": log.medicine_id,
+        "medicine_name": medicine.name if medicine else None,
+        "medicine_code": medicine.medicine_code if medicine else None,
+        "prescription_id": log.prescription_id,
+        "prescription_code": prescription.prescription_code if prescription else None,
+        "medicine_request_id": log.medicine_request_id,
+        "request_code": request.request_code if request else None,
+    }
+
+
 def parse_time_value(value, field_name: str):
     if value in (None, ""):
         return None
@@ -88,6 +127,7 @@ def parse_time_value(value, field_name: str):
 def serialize_health_record(record: HealthRecord):
     return {
         "id": record.id,
+        "kiosk_session_id": record.kiosk_session_id,
         "height_cm": float(record.height_cm) if record.height_cm is not None else None,
         "weight_kg": float(record.weight_kg) if record.weight_kg is not None else None,
         "temperature_c": (
@@ -102,6 +142,22 @@ def serialize_health_record(record: HealthRecord):
         ),
         "heart_rate": record.heart_rate,
         "recorded_at": str(record.recorded_at),
+    }
+
+
+def serialize_kiosk_session(session: KioskSession, records: list[HealthRecord]):
+    latest = records[0] if records else None
+    return {
+        "session_id": session.id,
+        "session_code": session.session_code,
+        "queue_number": session.queue_number,
+        "session_status": session.session_status,
+        "created_by_device": session.created_by_device,
+        "started_at": str(session.started_at) if session.started_at else None,
+        "completed_at": str(session.completed_at) if session.completed_at else None,
+        "record_count": len(records),
+        "latest_record": serialize_health_record(latest) if latest else None,
+        "records": [serialize_health_record(record) for record in records],
     }
 
 
@@ -204,20 +260,22 @@ def get_clinic_settings(db: Session = Depends(get_db)):
 
 @router.put("/clinic-settings/{setting_id}")
 def update_clinic_setting(
-    setting_id: int, payload: dict, db: Session = Depends(get_db)
+    setting_id: int, payload: ClinicSettingUpdateSchema, db: Session = Depends(get_db)
 ):
     setting = db.query(ClinicSetting).filter(ClinicSetting.id == setting_id).first()
     if not setting:
         raise HTTPException(status_code=404, detail="Clinic setting not found")
 
-    is_open = payload.get("is_open", setting.is_open)
+    payload_data = payload.model_dump(exclude_unset=True)
+
+    is_open = payload_data.get("is_open", setting.is_open)
     open_time = parse_time_value(
-        payload.get("open_time", setting.open_time), "open_time"
+        payload_data.get("open_time", setting.open_time), "open_time"
     )
     close_time = parse_time_value(
-        payload.get("close_time", setting.close_time), "close_time"
+        payload_data.get("close_time", setting.close_time), "close_time"
     )
-    slot_interval_minutes = payload.get(
+    slot_interval_minutes = payload_data.get(
         "slot_interval_minutes", setting.slot_interval_minutes
     )
 
@@ -298,18 +356,13 @@ def get_doctors(db: Session = Depends(get_db)):
 
 
 @router.post("/doctors")
-def add_doctor(payload: dict, db: Session = Depends(get_db)):
-    required_fields = ["doctor_code", "first_name", "last_name"]
-    for field in required_fields:
-        if field not in payload or not str(payload[field]).strip():
-            raise HTTPException(status_code=400, detail=f"{field} is required")
-
-    existing = db.query(Doctor).filter(Doctor.doctor_code == payload["doctor_code"]).first()
+def add_doctor(payload: DoctorCreateSchema, db: Session = Depends(get_db)):
+    existing = db.query(Doctor).filter(Doctor.doctor_code == payload.doctor_code).first()
     if existing:
         raise HTTPException(status_code=400, detail="Doctor code already exists")
 
-    username = payload.get("username")
-    password = payload.get("password")
+    username = payload.username
+    password = payload.password
 
     if username and str(username).strip():
         existing_username = db.query(Doctor).filter(Doctor.username == username).first()
@@ -317,13 +370,13 @@ def add_doctor(payload: dict, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="Username already exists")
 
     doctor = Doctor(
-        doctor_code=payload["doctor_code"],
-        first_name=payload["first_name"],
-        last_name=payload["last_name"],
+        doctor_code=payload.doctor_code,
+        first_name=payload.first_name,
+        last_name=payload.last_name,
         username=username.strip() if username and str(username).strip() else None,
         password_hash=hash_password(password) if password and str(password).strip() else None,
-        specialization=payload.get("specialization"),
-        is_active=payload.get("is_active", True)
+        specialization=payload.specialization,
+        is_active=payload.is_active
     )
 
     db.add(doctor)
@@ -338,13 +391,14 @@ def add_doctor(payload: dict, db: Session = Depends(get_db)):
 
 
 @router.put("/doctors/{doctor_id}")
-def update_doctor(doctor_id: int, payload: dict, db: Session = Depends(get_db)):
+def update_doctor(doctor_id: int, payload: DoctorUpdateSchema, db: Session = Depends(get_db)):
     doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found")
 
-    username = payload.get("username", doctor.username)
-    password = payload.get("password")
+    payload_data = payload.model_dump(exclude_unset=True)
+    username = payload_data.get("username", doctor.username)
+    password = payload_data.get("password")
 
     if username and str(username).strip():
         existing_username = (
@@ -355,13 +409,13 @@ def update_doctor(doctor_id: int, payload: dict, db: Session = Depends(get_db)):
         if existing_username:
             raise HTTPException(status_code=400, detail="Username already exists")
 
-    doctor.first_name = payload.get("first_name", doctor.first_name)
-    doctor.last_name = payload.get("last_name", doctor.last_name)
+    doctor.first_name = payload_data.get("first_name", doctor.first_name)
+    doctor.last_name = payload_data.get("last_name", doctor.last_name)
     doctor.username = username.strip() if username and str(username).strip() else None
     if password and str(password).strip():
         doctor.password_hash = hash_password(password)
-    doctor.specialization = payload.get("specialization", doctor.specialization)
-    doctor.is_active = payload.get("is_active", doctor.is_active)
+    doctor.specialization = payload_data.get("specialization", doctor.specialization)
+    doctor.is_active = payload_data.get("is_active", doctor.is_active)
 
     db.commit()
 
@@ -399,24 +453,19 @@ def admin_get_medicines(db: Session = Depends(get_db)):
 
 
 @router.post("/medicines")
-def add_medicine(payload: dict, db: Session = Depends(get_db)):
-    required_fields = ["medicine_code", "name", "stock_quantity"]
-    for field in required_fields:
-        if field not in payload:
-            raise HTTPException(status_code=400, detail=f"{field} is required")
-
-    existing = db.query(Medicine).filter(Medicine.medicine_code == payload["medicine_code"]).first()
+def add_medicine(payload: MedicineCreateSchema, db: Session = Depends(get_db)):
+    existing = db.query(Medicine).filter(Medicine.medicine_code == payload.medicine_code).first()
     if existing:
         raise HTTPException(status_code=400, detail="Medicine code already exists")
 
     medicine = Medicine(
-        medicine_code=payload["medicine_code"],
-        name=payload["name"],
-        description=payload.get("description"),
-        stock_quantity=payload["stock_quantity"],
-        expiration_date=payload.get("expiration_date"),
-        unit=payload.get("unit"),
-        is_active=payload.get("is_active", True)
+        medicine_code=payload.medicine_code,
+        name=payload.name,
+        description=payload.description,
+        stock_quantity=payload.stock_quantity,
+        expiration_date=payload.expiration_date,
+        unit=payload.unit,
+        is_active=payload.is_active
     )
 
     db.add(medicine)
@@ -431,17 +480,18 @@ def add_medicine(payload: dict, db: Session = Depends(get_db)):
 
 
 @router.put("/medicines/{medicine_id}")
-def update_medicine(medicine_id: int, payload: dict, db: Session = Depends(get_db)):
+def update_medicine(medicine_id: int, payload: MedicineUpdateSchema, db: Session = Depends(get_db)):
     medicine = db.query(Medicine).filter(Medicine.id == medicine_id).first()
     if not medicine:
         raise HTTPException(status_code=404, detail="Medicine not found")
 
-    medicine.name = payload.get("name", medicine.name)
-    medicine.description = payload.get("description", medicine.description)
-    medicine.stock_quantity = payload.get("stock_quantity", medicine.stock_quantity)
-    medicine.expiration_date = payload.get("expiration_date", medicine.expiration_date)
-    medicine.unit = payload.get("unit", medicine.unit)
-    medicine.is_active = payload.get("is_active", medicine.is_active)
+    payload_data = payload.model_dump(exclude_unset=True)
+    medicine.name = payload_data.get("name", medicine.name)
+    medicine.description = payload_data.get("description", medicine.description)
+    medicine.stock_quantity = payload_data.get("stock_quantity", medicine.stock_quantity)
+    medicine.expiration_date = payload_data.get("expiration_date", medicine.expiration_date)
+    medicine.unit = payload_data.get("unit", medicine.unit)
+    medicine.is_active = payload_data.get("is_active", medicine.is_active)
 
     db.commit()
 
@@ -475,15 +525,25 @@ def get_all_appointments(db: Session = Depends(get_db)):
 
 
 @router.put("/appointments/{appointment_id}/status")
-def update_appointment_status(appointment_id: int, payload: dict, db: Session = Depends(get_db)):
+def update_appointment_status(
+    appointment_id: int,
+    payload: AppointmentStatusUpdateSchema,
+    db: Session = Depends(get_db),
+):
     appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
-    if "status" not in payload:
-        raise HTTPException(status_code=400, detail="status is required")
+    try:
+        target_status = normalize_appointment_status(payload.status)
+        current_status = normalize_appointment_status(appointment.status)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-    appointment.status = payload["status"]
+    if target_status != current_status and target_status not in APPOINTMENT_ALLOWED_TRANSITIONS.get(current_status, set()):
+        raise HTTPException(status_code=400, detail="Invalid appointment status transition")
+
+    appointment.status = target_status
     db.commit()
 
     return {"message": "Appointment status updated successfully"}
@@ -493,8 +553,8 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
     total_patients = db.query(func.count(Patient.id)).scalar()
     total_doctors = db.query(func.count(Doctor.id)).scalar()
     total_appointments = db.query(func.count(Appointment.id)).scalar()
-    total_pending_prescriptions = db.query(func.count(Prescription.id)).filter(Prescription.status == "Pending").scalar()
-    total_released_prescriptions = db.query(func.count(Prescription.id)).filter(Prescription.status == "Released").scalar()
+    total_pending_prescriptions = db.query(func.count(Prescription.id)).filter(Prescription.status == "pending").scalar()
+    total_released_prescriptions = db.query(func.count(Prescription.id)).filter(Prescription.status == "released").scalar()
 
     low_stock_medicines = db.query(Medicine).filter(Medicine.stock_quantity <= 20).count()
 
@@ -604,9 +664,10 @@ def get_patients(search: str = "", db: Session = Depends(get_db)):
             | (Patient.last_name.ilike(term))
             | (Patient.email.ilike(term))
             | (Patient.mobile_number.ilike(term))
+            | (Patient.contact_number.ilike(term))
         )
 
-    patients = query.order_by(Patient.created_at.desc(), Patient.id.desc()).all()
+    patients = query.order_by(Patient.last_name.asc(), Patient.first_name.asc(), Patient.id.desc()).all()
 
     return [
         {
@@ -618,8 +679,10 @@ def get_patients(search: str = "", db: Session = Depends(get_db)):
             "sex": patient.sex,
             "email": patient.email,
             "mobile_number": patient.mobile_number,
+            "contact_number": patient.contact_number,
             "address": patient.address,
             "is_verified": patient.is_verified,
+            "patient_source": patient.patient_source,
             "created_at": str(patient.created_at),
         }
         for patient in patients
@@ -651,6 +714,23 @@ def get_patient_record(patient_code: str, db: Session = Depends(get_db)):
         .all()
     )
 
+    kiosk_sessions = (
+        db.query(KioskSession)
+        .filter(KioskSession.patient_id == patient.id)
+        .order_by(KioskSession.started_at.desc(), KioskSession.id.desc())
+        .all()
+    )
+
+    records_by_session = {}
+    for record in health_records:
+        if record.kiosk_session_id:
+            records_by_session.setdefault(record.kiosk_session_id, []).append(record)
+
+    serialized_sessions = [
+        serialize_kiosk_session(session, records_by_session.get(session.id, []))
+        for session in kiosk_sessions
+    ]
+
     return {
         "patient": {
             "id": patient.id,
@@ -663,13 +743,22 @@ def get_patient_record(patient_code: str, db: Session = Depends(get_db)):
             "sex": patient.sex,
             "email": patient.email,
             "mobile_number": patient.mobile_number,
+            "contact_number": patient.contact_number,
             "address": patient.address,
             "emergency_contact": patient.emergency_contact,
             "profile_picture": patient.profile_picture,
             "is_verified": patient.is_verified,
+            "patient_source": patient.patient_source,
             "created_at": str(patient.created_at),
         },
+        "summary": {
+            "health_record_count": len(health_records),
+            "appointment_count": len(appointments),
+            "kiosk_session_count": len(kiosk_sessions),
+            "last_recorded_at": health_records[0].recorded_at.isoformat() if health_records else None,
+        },
         "latest_health_record": latest_health_record,
+        "kiosk_sessions": serialized_sessions,
         "health_records": [serialize_health_record(record) for record in health_records],
         "appointments": [
             {
@@ -689,8 +778,11 @@ def get_patient_record(patient_code: str, db: Session = Depends(get_db)):
 
 
 @router.get("/admins")
-def get_admins(requester_admin_id: int, db: Session = Depends(get_db)):
-    get_super_admin(requester_admin_id, db)
+def get_admins(
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
+):
+    get_super_admin(current_admin)
 
     admins = db.query(Admin).order_by(Admin.created_at.desc(), Admin.id.desc()).all()
     creator_map = {
@@ -704,27 +796,25 @@ def get_admins(requester_admin_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/admins")
-def create_admin(payload: dict, db: Session = Depends(get_db)):
-    required_fields = ["requester_admin_id", "first_name", "last_name", "email", "password"]
+def create_admin(
+    payload: AdminCreateSchema,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
+):
+    requester_admin = get_super_admin(current_admin)
 
-    for field in required_fields:
-        if field not in payload or not str(payload[field]).strip():
-            raise HTTPException(status_code=400, detail=f"{field} is required")
-
-    requester_admin = get_super_admin(int(payload["requester_admin_id"]), db)
-
-    existing_admin = db.query(Admin).filter(Admin.email == payload["email"]).first()
+    existing_admin = db.query(Admin).filter(Admin.email == payload.email).first()
     if existing_admin:
         raise HTTPException(status_code=400, detail="Email already exists")
 
     admin = Admin(
-        first_name=payload["first_name"],
-        last_name=payload["last_name"],
-        email=payload["email"],
-        password=hash_password(payload["password"]),
+        first_name=payload.first_name,
+        last_name=payload.last_name,
+        email=payload.email,
+        password=hash_password(payload.password),
         role="admin",
         created_by=requester_admin.id,
-        is_active=payload.get("is_active", True),
+        is_active=payload.is_active,
     )
 
     db.add(admin)
@@ -738,11 +828,13 @@ def create_admin(payload: dict, db: Session = Depends(get_db)):
 
 
 @router.put("/admins/{admin_id}/status")
-def update_admin_status(admin_id: int, payload: dict, db: Session = Depends(get_db)):
-    if "requester_admin_id" not in payload:
-        raise HTTPException(status_code=400, detail="requester_admin_id is required")
-
-    requester_admin = get_super_admin(int(payload["requester_admin_id"]), db)
+def update_admin_status(
+    admin_id: int,
+    payload: AdminStatusUpdateSchema,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
+):
+    requester_admin = get_super_admin(current_admin)
 
     admin = db.query(Admin).filter(Admin.id == admin_id).first()
     if not admin:
@@ -751,7 +843,7 @@ def update_admin_status(admin_id: int, payload: dict, db: Session = Depends(get_
     if admin.role == "super_admin":
         raise HTTPException(status_code=400, detail="Super admin status cannot be changed")
 
-    admin.is_active = bool(payload.get("is_active", admin.is_active))
+    admin.is_active = payload.is_active
     admin.created_by = admin.created_by or requester_admin.id
     db.commit()
     db.refresh(admin)
@@ -773,16 +865,10 @@ def get_medicine_keepers(db: Session = Depends(get_db)):
 
 
 @router.post("/medicine-keepers")
-def create_medicine_keeper(payload: dict, db: Session = Depends(get_db)):
-    required_fields = ["keeper_code", "first_name", "last_name", "username", "password"]
-
-    for field in required_fields:
-        if field not in payload or not str(payload[field]).strip():
-            raise HTTPException(status_code=400, detail=f"{field} is required")
-
+def create_medicine_keeper(payload: MedicineKeeperCreateSchema, db: Session = Depends(get_db)):
     existing_code = (
         db.query(MedicineKeeper)
-        .filter(MedicineKeeper.keeper_code == payload["keeper_code"])
+        .filter(MedicineKeeper.keeper_code == payload.keeper_code)
         .first()
     )
     if existing_code:
@@ -790,19 +876,19 @@ def create_medicine_keeper(payload: dict, db: Session = Depends(get_db)):
 
     existing_username = (
         db.query(MedicineKeeper)
-        .filter(MedicineKeeper.username == payload["username"])
+        .filter(MedicineKeeper.username == payload.username)
         .first()
     )
     if existing_username:
         raise HTTPException(status_code=400, detail="Username already exists")
 
     keeper = MedicineKeeper(
-        keeper_code=payload["keeper_code"],
-        first_name=payload["first_name"],
-        last_name=payload["last_name"],
-        username=payload["username"],
-        password_hash=hash_password(payload["password"]),
-        is_active=payload.get("is_active", True),
+        keeper_code=payload.keeper_code,
+        first_name=payload.first_name,
+        last_name=payload.last_name,
+        username=payload.username,
+        password_hash=hash_password(payload.password),
+        is_active=payload.is_active,
     )
 
     db.add(keeper)
@@ -816,12 +902,17 @@ def create_medicine_keeper(payload: dict, db: Session = Depends(get_db)):
 
 
 @router.put("/medicine-keepers/{keeper_id}")
-def update_medicine_keeper(keeper_id: int, payload: dict, db: Session = Depends(get_db)):
+def update_medicine_keeper(
+    keeper_id: int,
+    payload: MedicineKeeperUpdateSchema,
+    db: Session = Depends(get_db),
+):
     keeper = db.query(MedicineKeeper).filter(MedicineKeeper.id == keeper_id).first()
     if not keeper:
         raise HTTPException(status_code=404, detail="Medicine keeper not found")
 
-    username = payload.get("username", keeper.username)
+    payload_data = payload.model_dump(exclude_unset=True)
+    username = payload_data.get("username", keeper.username)
     if username and str(username).strip():
         existing_username = (
             db.query(MedicineKeeper)
@@ -831,12 +922,12 @@ def update_medicine_keeper(keeper_id: int, payload: dict, db: Session = Depends(
         if existing_username:
             raise HTTPException(status_code=400, detail="Username already exists")
 
-    keeper.first_name = payload.get("first_name", keeper.first_name)
-    keeper.last_name = payload.get("last_name", keeper.last_name)
+    keeper.first_name = payload_data.get("first_name", keeper.first_name)
+    keeper.last_name = payload_data.get("last_name", keeper.last_name)
     keeper.username = username.strip() if username and str(username).strip() else keeper.username
-    keeper.is_active = payload.get("is_active", keeper.is_active)
+    keeper.is_active = payload_data.get("is_active", keeper.is_active)
 
-    password = payload.get("password")
+    password = payload_data.get("password")
     if password and str(password).strip():
         keeper.password_hash = hash_password(password)
 
@@ -847,3 +938,66 @@ def update_medicine_keeper(keeper_id: int, payload: dict, db: Session = Depends(
         "message": "Medicine keeper updated successfully",
         "keeper": serialize_medicine_keeper(keeper),
     }
+
+
+@router.get("/inventory-activity")
+def get_inventory_activity(
+    search: str = "",
+    action_type: str = "",
+    db: Session = Depends(get_db),
+):
+    query = (
+        db.query(
+            InventoryActivityLog,
+            MedicineKeeper,
+            Medicine,
+            Prescription,
+            MedicineRequest,
+        )
+        .join(MedicineKeeper, InventoryActivityLog.keeper_id == MedicineKeeper.id)
+        .outerjoin(Medicine, InventoryActivityLog.medicine_id == Medicine.id)
+        .outerjoin(Prescription, InventoryActivityLog.prescription_id == Prescription.id)
+        .outerjoin(
+            MedicineRequest,
+            InventoryActivityLog.medicine_request_id == MedicineRequest.id,
+        )
+    )
+
+    if action_type and action_type.strip():
+        query = query.filter(InventoryActivityLog.action_type == action_type.strip())
+
+    rows = (
+        query.order_by(
+            InventoryActivityLog.created_at.desc(),
+            InventoryActivityLog.id.desc(),
+        ).all()
+    )
+
+    serialized = [
+        serialize_inventory_activity(log, keeper, medicine, prescription, request)
+        for log, keeper, medicine, prescription, request in rows
+    ]
+
+    if search and search.strip():
+        term = search.strip().lower()
+        serialized = [
+            item
+            for item in serialized
+            if term in " ".join(
+                filter(
+                    None,
+                    [
+                        item["action_type"],
+                        item["reference_type"],
+                        item["details"],
+                        item["keeper_name"],
+                        item["medicine_name"],
+                        item["medicine_code"],
+                        item["prescription_code"],
+                        item["request_code"],
+                    ],
+                )
+            ).lower()
+        ]
+
+    return serialized

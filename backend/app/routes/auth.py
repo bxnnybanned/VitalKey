@@ -15,6 +15,7 @@ from app.schemas.auth import (
     ResendOTPSchema,
     CompleteProfileSchema,
     LoginSchema,
+    ProfileUpdateSchema,
     ForgotPasswordSchema,
     ResetPasswordSchema,
 )
@@ -50,6 +51,7 @@ def register_basic(payload: RegisterBasicSchema, db: Session = Depends(get_db)):
         email=payload.email,
         mobile_number=payload.mobile_number,
         password=hash_password(payload.password),
+        patient_source="mobile_app",
         address=None,
         emergency_contact=None,
         is_verified=False,
@@ -199,6 +201,12 @@ def login_patient(payload: LoginSchema, db: Session = Depends(get_db)):
     if not patient:
         raise HTTPException(status_code=404, detail="Account not found")
 
+    if not patient.password:
+        raise HTTPException(
+            status_code=403,
+            detail="This patient record does not have a mobile app account yet.",
+        )
+
     if not verify_password(payload.password, patient.password):
         raise HTTPException(status_code=401, detail="Invalid password")
 
@@ -324,14 +332,19 @@ def get_profile(mobile_number: str, db: Session = Depends(get_db)):
 
 
 @router.put("/profile/{mobile_number}")
-def update_profile(mobile_number: str, payload: dict, db: Session = Depends(get_db)):
+def update_profile(
+    mobile_number: str,
+    payload: ProfileUpdateSchema,
+    db: Session = Depends(get_db),
+):
     patient = db.query(Patient).filter(
         Patient.mobile_number == mobile_number
     ).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
-    new_mobile_number = payload.get("new_mobile_number", patient.mobile_number)
+    payload_data = payload.model_dump(exclude_unset=True)
+    new_mobile_number = payload_data.get("new_mobile_number", patient.mobile_number)
 
     if new_mobile_number != patient.mobile_number:
         existing = db.query(Patient).filter(
@@ -344,11 +357,11 @@ def update_profile(mobile_number: str, payload: dict, db: Session = Depends(get_
 
         patient.mobile_number = new_mobile_number
 
-    patient.address = payload.get("address", patient.address)
-    patient.emergency_contact = payload.get(
+    patient.address = payload_data.get("address", patient.address)
+    patient.emergency_contact = payload_data.get(
         "emergency_contact", patient.emergency_contact
     )
-    patient.profile_picture = payload.get(
+    patient.profile_picture = payload_data.get(
         "profile_picture", patient.profile_picture
     )
 

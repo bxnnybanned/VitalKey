@@ -24,6 +24,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   bool isLoadingDoctors = true;
   bool isLoadingSlots = false;
   bool isSubmitting = false;
+  String slotMessage = "";
 
   @override
   void initState() {
@@ -55,6 +56,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       isLoadingSlots = true;
       availableSlots = [];
       selectedTimeSlot = null;
+      slotMessage = "";
     });
 
     try {
@@ -62,6 +64,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
       setState(() {
         availableSlots = result["available_slots"] ?? [];
+        slotMessage = (result["message"] ?? "").toString();
         isLoadingSlots = false;
       });
     } catch (e) {
@@ -172,6 +175,22 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: textDark),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'Book Appointment',
+          style: TextStyle(
+            color: textDark,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -181,6 +200,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
           ),
         ),
         child: SafeArea(
+          top: false,
           child: isLoadingDoctors
               ? const Center(child: CircularProgressIndicator())
               : Center(
@@ -197,15 +217,15 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                         vertical: compact ? 24 : 30,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.94),
+                        color: Colors.white.withValues(alpha: 0.94),
                         borderRadius: BorderRadius.circular(28),
                         border: Border.all(
-                          color: primaryBlue.withOpacity(0.08),
+                          color: primaryBlue.withValues(alpha: 0.08),
                           width: 1.2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: primaryBlue.withOpacity(0.10),
+                            color: primaryBlue.withValues(alpha: 0.10),
                             blurRadius: 28,
                             offset: const Offset(0, 14),
                           ),
@@ -222,7 +242,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                                 color: softBlue,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: primaryBlue.withOpacity(0.12),
+                                  color: primaryBlue.withValues(alpha: 0.12),
                                   width: 1.4,
                                 ),
                               ),
@@ -264,12 +284,12 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: deepBlue.withOpacity(0.90),
+                              color: deepBlue.withValues(alpha: 0.90),
                             ),
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<int>(
-                            value: selectedDoctorId,
+                            initialValue: selectedDoctorId,
                             isExpanded: true,
                             borderRadius: BorderRadius.circular(18),
                             items: doctors.map<DropdownMenuItem<int>>((doctor) {
@@ -346,7 +366,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: deepBlue.withOpacity(0.90),
+                              color: deepBlue.withValues(alpha: 0.90),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -365,55 +385,81 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                               ),
                             )
                           else if (selectedDoctorId != null)
-                            DropdownButtonFormField<String>(
-                              value: selectedTimeSlot,
-                              isExpanded: true,
-                              borderRadius: BorderRadius.circular(18),
-                              items: availableSlots
-                                  .map<DropdownMenuItem<String>>((slot) {
-                                    return DropdownMenuItem<String>(
-                                      value: slot.toString(),
-                                      child: Text(
-                                        slot.toString(),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                            availableSlots.isNotEmpty
+                                ? DropdownButtonFormField<String>(
+                                    initialValue: selectedTimeSlot,
+                                    isExpanded: true,
+                                    borderRadius: BorderRadius.circular(18),
+                                    items: availableSlots
+                                        .map<DropdownMenuItem<String>>((slot) {
+                                          return DropdownMenuItem<String>(
+                                            value: slot.toString(),
+                                            child: Text(
+                                              slot.toString(),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          );
+                                        })
+                                        .toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        selectedTimeSlot = value;
+                                      });
+                                    },
+                                    decoration: InputDecoration(
+                                      hintText: 'Choose an available slot',
+                                      hintStyle: const TextStyle(color: textSoft),
+                                      prefixIcon: const Icon(
+                                        Icons.access_time_rounded,
+                                        color: primaryBlue,
                                       ),
-                                    );
-                                  })
-                                  .toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  selectedTimeSlot = value;
-                                });
-                              },
-                              decoration: InputDecoration(
-                                hintText: 'Choose an available slot',
-                                hintStyle: const TextStyle(color: textSoft),
-                                prefixIcon: const Icon(
-                                  Icons.access_time_rounded,
-                                  color: primaryBlue,
-                                ),
-                                filled: true,
-                                fillColor: const Color(0xFFFDFEFF),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 18,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                  borderSide: const BorderSide(
-                                    color: borderColor,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                  borderSide: const BorderSide(
-                                    color: primaryBlue,
-                                    width: 1.4,
-                                  ),
-                                ),
-                              ),
-                            )
+                                      filled: true,
+                                      fillColor: const Color(0xFFFDFEFF),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 18,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                        borderSide: const BorderSide(
+                                          color: borderColor,
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                        borderSide: const BorderSide(
+                                          color: primaryBlue,
+                                          width: 1.4,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 16,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFF7ED),
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: const Color(0xFFFED7AA),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      slotMessage.isEmpty
+                                          ? 'No available slots found for this doctor today.'
+                                          : slotMessage,
+                                      style: const TextStyle(
+                                        color: Color(0xFF9A3412),
+                                        fontSize: 13,
+                                        height: 1.45,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  )
                           else
                             Container(
                               width: double.infinity,
@@ -422,7 +468,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                                 vertical: 16,
                               ),
                               decoration: BoxDecoration(
-                                color: softBlue.withOpacity(0.55),
+                                color: softBlue.withValues(alpha: 0.55),
                                 borderRadius: BorderRadius.circular(18),
                               ),
                               child: const Text(
@@ -442,7 +488,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: deepBlue.withOpacity(0.90),
+                              color: deepBlue.withValues(alpha: 0.90),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -527,7 +573,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                               vertical: 12,
                             ),
                             decoration: BoxDecoration(
-                              color: softBlue.withOpacity(0.65),
+                              color: softBlue.withValues(alpha: 0.65),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: const Row(

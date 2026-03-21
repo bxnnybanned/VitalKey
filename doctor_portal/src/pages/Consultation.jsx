@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { createPrescription, fetchMedicines, fetchPatientDetails, fetchTodayPatients, saveConsultation } from "../api/doctorApi";
-import { getSelectedPatientCode } from "../utils/selectedPatient";
+import { useNavigate } from "react-router-dom";
+import { completeConsultation, fetchMedicines, fetchPatientDetails, fetchTodayPatients } from "../api/doctorApi";
+import { clearSelectedPatientCode, getSelectedPatientCode, getSelectedQueueItem } from "../utils/selectedPatient";
 
 function formatValue(value) {
   if (value === null || value === undefined || value === "") return "-";
@@ -8,21 +9,21 @@ function formatValue(value) {
 }
 
 export default function Consultation() {
+  const navigate = useNavigate();
   const doctor = useMemo(
     () => JSON.parse(localStorage.getItem("doctor") || "null"),
     [],
   );
   const selectedPatientCode = getSelectedPatientCode();
+  const selectedQueueItem = getSelectedQueueItem();
 
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [medicines, setMedicines] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [savingConsultation, setSavingConsultation] = useState(false);
-  const [savingPrescription, setSavingPrescription] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [consultationResult, setConsultationResult] = useState(null);
   const [consultationForm, setConsultationForm] = useState({
     consultation_notes: "",
     diagnosis: "",
@@ -48,7 +49,11 @@ export default function Consultation() {
         ]);
         setSelectedPatient(details);
         setSelectedAppointment(
-          patients.find((item) => item.patient_code === selectedPatientCode) || null,
+          selectedQueueItem
+            ? patients.find(
+                (item) => item.queue_item_id === selectedQueueItem.queue_item_id,
+              ) || selectedQueueItem
+            : patients.find((item) => item.patient_code === selectedPatientCode) || null,
         );
         setMedicines(medicineData);
       } catch (err) {
@@ -86,57 +91,57 @@ export default function Consultation() {
     );
   };
 
-  const handleSaveConsultation = async (e) => {
+  const handleCompleteConsultation = async (e) => {
     e.preventDefault();
-    if (!selectedPatient || !selectedAppointment) return;
+    if (!selectedPatient) return;
 
     try {
-      setSavingConsultation(true);
+      setSubmitting(true);
       setError("");
       setSuccess("");
+      const normalizedItems = prescriptionItems.map((item) => ({
+        medicine_id: Number(item.medicine_id),
+        dosage_instructions: item.dosage_instructions.trim(),
+        quantity: Number(item.quantity),
+      }));
 
-      const data = await saveConsultation({
-        appointment_id: selectedAppointment.appointment_id,
+      const invalidItem = normalizedItems.find(
+        (item) =>
+          !item.medicine_id ||
+          !item.dosage_instructions ||
+          !item.quantity ||
+          item.quantity < 1,
+      );
+
+      if (invalidItem) {
+        setError("Complete the medicine, dosage instructions, and quantity fields.");
+        setSubmitting(false);
+        return;
+      }
+
+      await completeConsultation({
+        appointment_id: selectedAppointment?.appointment_id ?? null,
         patient_code: selectedPatient.patient_code,
         doctor_id: doctor.doctor_id,
+        kiosk_session_id:
+          selectedAppointment?.kiosk_session_id ??
+          selectedPatient.latest_kiosk_session_id ??
+          null,
         consultation_notes: consultationForm.consultation_notes,
         diagnosis: consultationForm.diagnosis,
+        items: normalizedItems,
       });
 
-      setConsultationResult(data);
-      setSuccess("Consultation saved successfully.");
+      setSuccess("Consultation completed and prescription sent to inventory.");
+      clearSelectedPatientCode();
+      setTimeout(() => navigate("/dashboard"), 900);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to save consultation.");
+      setError(
+        err.response?.data?.detail ||
+          "Failed to complete consultation and send prescription.",
+      );
     } finally {
-      setSavingConsultation(false);
-    }
-  };
-
-  const handleCreatePrescription = async (e) => {
-    e.preventDefault();
-    if (!consultationResult?.consultation_id) {
-      setError("Save the consultation first before creating a prescription.");
-      return;
-    }
-
-    try {
-      setSavingPrescription(true);
-      setError("");
-      setSuccess("");
-      await createPrescription({
-        consultation_id: consultationResult.consultation_id,
-        items: prescriptionItems.map((item) => ({
-          medicine_id: Number(item.medicine_id),
-          dosage_instructions: item.dosage_instructions,
-          quantity: Number(item.quantity),
-        })),
-      });
-      setSuccess("Prescription created successfully.");
-      setPrescriptionItems([{ medicine_id: "", dosage_instructions: "", quantity: 1 }]);
-    } catch (err) {
-      setError(err.response?.data?.detail || "Failed to create prescription.");
-    } finally {
-      setSavingPrescription(false);
+      setSubmitting(false);
     }
   };
 
@@ -182,7 +187,7 @@ export default function Consultation() {
             </div>
           </section>
 
-          <form onSubmit={handleSaveConsultation} className="portal-card space-y-5">
+          <form onSubmit={handleCompleteConsultation} className="portal-card space-y-5">
             <h2 className="portal-section-title">Consultation Notes</h2>
 
             <label className="space-y-2">
@@ -207,17 +212,7 @@ export default function Consultation() {
               />
             </label>
 
-            <button
-              type="submit"
-              disabled={savingConsultation}
-              className="portal-button portal-button-block"
-            >
-              {savingConsultation ? "Saving..." : "Save Consultation"}
-            </button>
-          </form>
-
-          <form onSubmit={handleCreatePrescription} className="portal-card space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <h2 className="portal-section-title">Prescription</h2>
               <button
                 type="button"
@@ -261,6 +256,7 @@ export default function Consultation() {
                         updatePrescriptionItem(index, "dosage_instructions", e.target.value)
                       }
                       className="portal-input text-base"
+                      placeholder="e.g. 1 tablet after meals"
                       required
                     />
                   </label>
@@ -294,11 +290,12 @@ export default function Consultation() {
 
             <button
               type="submit"
-              disabled={savingPrescription}
+              disabled={submitting}
               className="portal-button portal-button-block"
             >
-              {savingPrescription ? "Creating..." : "Create Prescription"}
+              {submitting ? "Submitting..." : "Complete Consultation"}
             </button>
+
           </form>
         </div>
       )}

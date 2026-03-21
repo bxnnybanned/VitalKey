@@ -7,10 +7,10 @@ class InventoryLoginSchema(BaseModel):
 
 
 class UpdatePrescriptionStatusSchema(BaseModel):
-    status: str = Field(..., min_length=1, max_length=50)
+    status: str = Field(..., min_length=1, max_length=30)
     keeper_id: int
 
 
 class UpdateMedicineRequestStatusSchema(BaseModel):
-    status: str = Field(..., min_length=1, max_length=50)
+    status: str = Field(..., min_length=1, max_length=30)
     keeper_id: int

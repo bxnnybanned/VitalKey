@@ -97,6 +97,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         patientId: (profileData?["patient_id"] ?? "").toString(),
       );
 
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result["message"] ?? "Profile updated successfully"),
@@ -230,7 +232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -365,7 +367,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(28),
                       boxShadow: [
                         BoxShadow(
-                          color: _primaryBlue.withOpacity(0.18),
+                          color: _primaryBlue.withValues(alpha: 0.18),
                           blurRadius: 22,
                           offset: const Offset(0, 10),
                         ),
@@ -381,13 +383,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.35),
+                                  color: Colors.white.withValues(alpha: 0.35),
                                   width: 2,
                                 ),
                               ),
                               child: CircleAvatar(
                                 radius: 52,
-                                backgroundColor: Colors.white.withOpacity(0.18),
+                                backgroundColor: Colors.white.withValues(alpha: 0.18),
                                 backgroundImage: profileImageProvider,
                                 child: profileImageProvider == null
                                     ? const Icon(
@@ -433,7 +435,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text(
                           'Patient ID: ${(profileData!["patient_id"] ?? "").toString()}',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 13.5,
                           ),
                         ),
@@ -442,7 +444,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           'Review your patient details and update your contact information when needed.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.88),
+                            color: Colors.white.withValues(alpha: 0.88),
                             fontSize: 12.8,
                             height: 1.45,
                           ),
@@ -481,8 +483,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ? null
                                     : () => pickImage(ImageSource.camera),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white.withOpacity(
-                                    0.14,
+                                  backgroundColor: Colors.white.withValues(
+                                    alpha: 0.14,
                                   ),
                                   foregroundColor: Colors.white,
                                   elevation: 0,
@@ -493,7 +495,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                     side: BorderSide(
-                                      color: Colors.white.withOpacity(0.22),
+                                      color: Colors.white.withValues(alpha: 0.22),
                                     ),
                                   ),
                                 ),
@@ -562,7 +564,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: _softBlue.withOpacity(0.45),
+                      color: _softBlue.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(26),
                     ),
                     child: Column(

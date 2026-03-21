@@ -67,6 +67,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String title,
     required String subtitle,
     required IconData icon,
+    required List<Color> accent,
     required VoidCallback onTap,
     required bool compact,
   }) {
@@ -77,12 +78,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.95),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.98),
+                accent.last.withValues(alpha: 0.10),
+              ],
+            ),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: _primaryBlue.withOpacity(0.06), width: 1),
+            border: Border.all(
+              color: accent.first.withValues(alpha: 0.12),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: _primaryBlue.withOpacity(0.08),
+                color: accent.first.withValues(alpha: 0.10),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -97,10 +108,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   width: compact ? 46 : 52,
                   height: compact ? 46 : 52,
                   decoration: BoxDecoration(
-                    color: _primaryBlue.withOpacity(0.10),
+                    gradient: LinearGradient(
+                      colors: [
+                        accent.first.withValues(alpha: 0.16),
+                        accent.last.withValues(alpha: 0.24),
+                      ],
+                    ),
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: Icon(icon, color: _primaryBlue, size: compact ? 24 : 28),
+                  child: Icon(icon, color: accent.first, size: compact ? 24 : 28),
                 ),
                 SizedBox(height: compact ? 12 : 16),
                 Text(
@@ -161,7 +177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     height: 54,
                     width: 54,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
+                      color: Colors.white.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: const Icon(
@@ -191,7 +207,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.90),
+                            color: Colors.white.withValues(alpha: 0.90),
                             fontSize: 13.5,
                             fontWeight: FontWeight.w400,
                           ),
@@ -207,13 +223,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.35),
+                          color: Colors.white.withValues(alpha: 0.35),
                           width: 1.4,
                         ),
                       ),
                       child: CircleAvatar(
                         radius: 21,
-                        backgroundColor: Colors.white.withOpacity(0.18),
+                        backgroundColor: Colors.white.withValues(alpha: 0.18),
                         child: const Icon(
                           Icons.person,
                           color: Colors.white,
@@ -265,11 +281,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       width: double.infinity,
                       padding: EdgeInsets.all(compact ? 16 : 18),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.94),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.98),
+                            const Color(0xFFDFF4FF).withValues(alpha: 0.70),
+                          ],
+                        ),
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: _primaryBlue.withOpacity(0.08),
+                            color: _primaryBlue.withValues(alpha: 0.08),
                             blurRadius: 18,
                             offset: const Offset(0, 8),
                           ),
@@ -299,7 +322,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: _primaryBlue.withOpacity(0.08),
+                              gradient: LinearGradient(
+                                colors: [
+                                  _primaryBlue.withValues(alpha: 0.10),
+                                  const Color(0xFF14B8A6).withValues(alpha: 0.10),
+                                ],
+                              ),
                               borderRadius: BorderRadius.circular(18),
                             ),
                             child: Row(
@@ -367,6 +395,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             subtitle:
                                 "Schedule a consultation and receive your queue number.",
                             icon: Icons.calendar_today_rounded,
+                            accent: const [Color(0xFF2563EB), Color(0xFFDCEAFE)],
                             compact: compact,
                             onTap: () {
                               Navigator.push(
@@ -393,6 +422,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             subtitle:
                                 "View your booked consultations and appointment status.",
                             icon: Icons.event_note_rounded,
+                            accent: const [Color(0xFF0F766E), Color(0xFFCCFBF1)],
                             compact: compact,
                             onTap: () {
                               Navigator.push(
@@ -419,6 +449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             subtitle:
                                 "Submit a medicine request and track release updates.",
                             icon: Icons.medication_rounded,
+                            accent: const [Color(0xFF7C3AED), Color(0xFFEDE9FE)],
                             compact: compact,
                             onTap: () {
                               Navigator.push(
@@ -445,6 +476,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             subtitle:
                                 "Check which doctors are currently available for consultation.",
                             icon: Icons.local_hospital_rounded,
+                            accent: const [Color(0xFFEA580C), Color(0xFFFFEDD5)],
                             compact: compact,
                             onTap: () {
                               Navigator.push(
@@ -470,6 +502,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             subtitle:
                                 "Review your patient ID, contact details, and profile photo.",
                             icon: Icons.person_rounded,
+                            accent: const [Color(0xFF0F172A), Color(0xFFE2E8F0)],
                             compact: compact,
                             onTap: () => _openProfile(context),
                           ),

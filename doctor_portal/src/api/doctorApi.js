@@ -20,6 +20,11 @@ export async function saveConsultation(payload) {
   return response.data;
 }
 
+export async function completeConsultation(payload) {
+  const response = await api.post("/doctor/complete-consultation", payload);
+  return response.data;
+}
+
 export async function fetchMedicines() {
   const response = await api.get("/medicines");
   return response.data;

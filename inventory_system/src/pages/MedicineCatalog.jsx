@@ -17,6 +17,7 @@ const initialForm = {
 };
 
 export default function MedicineCatalog() {
+  const keeper = JSON.parse(localStorage.getItem("inventory_keeper") || "null");
   const [medicines, setMedicines] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
@@ -60,6 +61,7 @@ export default function MedicineCatalog() {
 
       const payload = {
         ...form,
+        keeper_id: keeper?.keeper_id,
         stock_quantity: Number(form.stock_quantity),
         expiration_date: form.expiration_date || null,
       };
@@ -106,7 +108,7 @@ export default function MedicineCatalog() {
     try {
       setError("");
       setSuccess("");
-      await deleteInventoryMedicine(medicine.medicine_id);
+      await deleteInventoryMedicine(medicine.medicine_id, keeper?.keeper_id);
       setSuccess("Medicine deleted successfully.");
 
       if (editingId === medicine.medicine_id) {
